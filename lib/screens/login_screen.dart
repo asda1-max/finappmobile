@@ -38,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _checkBiometric() async {
     final available = await BiometricService.isAvailable();
     final enabled = await SessionService.isBiometricEnabled();
-    final hasSession = await SessionService.isLoggedIn();
+    final hasSession = await SessionService.hasStoredCredentials();
     setState(() {
       _biometricAvailable = available;
       _biometricEnabled = enabled && hasSession;
@@ -54,6 +54,14 @@ class _LoginScreenState extends State<LoginScreen> {
     if (authenticated) {
       final token = await SessionService.getToken();
       if (token != null) {
+        // Re-activate the session (clears the soft-logout flag).
+        final username = await SessionService.getUsername();
+        final email = await SessionService.getEmail();
+        await SessionService.saveSession(
+          token: token,
+          username: username ?? '',
+          email: email ?? '',
+        );
         ApiClient.setAuthToken(token);
         widget.onLoginSuccess();
       }

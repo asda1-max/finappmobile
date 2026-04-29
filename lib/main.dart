@@ -138,7 +138,7 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   void _onLogout() async {
-    await SessionService.clearSession();
+    await SessionService.softLogout();
     ApiClient.setAuthToken(null);
     setState(() => _loggedIn = false);
   }
@@ -327,7 +327,7 @@ class SettingsScreenWithLogout extends StatelessWidget {
                       ),
                     );
                     if (confirm == true) {
-                      await SessionService.setBiometricEnabled(false);
+                      await SessionService.softLogout();
                       onLogout();
                     }
                   },

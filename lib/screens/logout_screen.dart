@@ -30,7 +30,7 @@ class LogoutScreen extends StatelessWidget {
     );
 
     if (confirm == true) {
-      await SessionService.setBiometricEnabled(false);
+      await SessionService.softLogout();
       onLogout();
     }
   }

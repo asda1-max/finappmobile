@@ -11,6 +11,7 @@ class SessionService {
   static const _keyUsername = 'auth_username';
   static const _keyEmail = 'auth_email';
   static const _keyBiometricEnabled = 'biometric_enabled';
+  static const _keyLoggedOut = 'logged_out';
 
   /// Save session after successful login.
   static Future<void> saveSession({
@@ -21,6 +22,8 @@ class SessionService {
     await _storage.write(key: _keyToken, value: token);
     await _storage.write(key: _keyUsername, value: username);
     await _storage.write(key: _keyEmail, value: email);
+    // Clear the logged-out flag since we're actively logged in now.
+    await _storage.delete(key: _keyLoggedOut);
   }
 
   /// Get stored JWT token.
@@ -38,17 +41,35 @@ class SessionService {
     return _storage.read(key: _keyEmail);
   }
 
-  /// Check if user is logged in.
+  /// Check if user is actively logged in (not soft-logged-out).
   static Future<bool> isLoggedIn() async {
+    final token = await getToken();
+    final loggedOut = await _storage.read(key: _keyLoggedOut);
+    return token != null && token.isNotEmpty && loggedOut != 'true';
+  }
+
+  /// Check if stored credentials exist for biometric re-login,
+  /// regardless of whether the user has soft-logged-out.
+  static Future<bool> hasStoredCredentials() async {
     final token = await getToken();
     return token != null && token.isNotEmpty;
   }
 
-  /// Clear all session data (logout).
+  /// Soft logout — marks the session as logged out but **preserves**
+  /// the token + biometric preference so that biometric can restore
+  /// the session later without re-entering a password.
+  static Future<void> softLogout() async {
+    await _storage.write(key: _keyLoggedOut, value: 'true');
+  }
+
+  /// Hard clear — wipes all session data including the token and
+  /// biometric preference. Use when the user explicitly disables
+  /// biometric or you need a full reset.
   static Future<void> clearSession() async {
     await _storage.delete(key: _keyToken);
     await _storage.delete(key: _keyUsername);
     await _storage.delete(key: _keyEmail);
+    await _storage.delete(key: _keyLoggedOut);
   }
 
   /// Enable/disable biometric login.
