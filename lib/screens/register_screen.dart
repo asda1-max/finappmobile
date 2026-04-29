@@ -3,7 +3,6 @@ import 'package:dio/dio.dart';
 import '../core/theme/app_colors.dart';
 import '../core/api_client.dart';
 import '../core/constants/api_constants.dart';
-import '../core/services/session_service.dart';
 import '../core/services/local_db_service.dart';
 import '../data/auth_repository.dart';
 import '../widgets/glassmorphic_card.dart';
@@ -29,7 +28,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _openApiSettings() async {
     final controller = TextEditingController(
-      text: LocalDbService.getPreference<String>('api_base_url') ??
+      text:
+          LocalDbService.getPreference<String>('api_base_url') ??
           ApiConstants.baseUrl,
     );
     final saved = await showDialog<bool>(
@@ -52,8 +52,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Save',
-                style: TextStyle(color: AppColors.primary)),
+            child: const Text(
+              'Save',
+              style: TextStyle(color: AppColors.primary),
+            ),
           ),
         ],
       ),
@@ -65,9 +67,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         await LocalDbService.savePreference('api_base_url', value);
         ApiClient.updateBaseUrl(value);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('API base URL updated')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('API base URL updated')));
         }
       }
     }
@@ -102,37 +104,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      final user = await _repo.register(
+      await _repo.register(
         username: username,
         email: email,
         password: password,
       );
 
-      await SessionService.saveSession(
-        token: user.token,
-        username: user.username,
-        email: user.email,
-      );
-      ApiClient.setAuthToken(user.token);
-
       if (mounted) {
+        // Navigate back to login and pass credentials to pre-fill
+        Navigator.pop(context, {'username': username, 'password': password});
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Welcome, ${user.username}!'),
+            content: const Text('Akun berhasil dibuat! Silakan login.'),
             backgroundColor: AppColors.buyGreen.withValues(alpha: 0.9),
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+            showCloseIcon: true,
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }
-
-      widget.onRegisterSuccess();
     } on DioException catch (e) {
-      final detail =
-          e.response?.data is Map ? e.response?.data['detail'] : null;
-      setState(() => _error =
-          detail?.toString() ?? 'Connection error. Is the backend running?');
+      final detail = e.response?.data is Map
+          ? e.response?.data['detail']
+          : null;
+      setState(
+        () => _error =
+            detail?.toString() ?? 'Connection error. Is the backend running?',
+      );
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -187,13 +188,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   TextField(
                     controller: _usernameCtrl,
                     style: const TextStyle(
-                        color: AppColors.textPrimary, fontSize: 14),
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Username',
-                      labelStyle:
-                          TextStyle(color: AppColors.textTertiary),
-                      prefixIcon: const Icon(Icons.person_outline,
-                          size: 20, color: AppColors.textMuted),
+                      labelStyle: TextStyle(color: AppColors.textTertiary),
+                      prefixIcon: const Icon(
+                        Icons.person_outline,
+                        size: 20,
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -202,13 +207,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _emailCtrl,
                     keyboardType: TextInputType.emailAddress,
                     style: const TextStyle(
-                        color: AppColors.textPrimary, fontSize: 14),
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Email',
-                      labelStyle:
-                          TextStyle(color: AppColors.textTertiary),
-                      prefixIcon: const Icon(Icons.email_outlined,
-                          size: 20, color: AppColors.textMuted),
+                      labelStyle: TextStyle(color: AppColors.textTertiary),
+                      prefixIcon: const Icon(
+                        Icons.email_outlined,
+                        size: 20,
+                        color: AppColors.textMuted,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -217,23 +226,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _passwordCtrl,
                     obscureText: _obscure,
                     style: const TextStyle(
-                        color: AppColors.textPrimary, fontSize: 14),
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Password',
-                      labelStyle:
-                          TextStyle(color: AppColors.textTertiary),
-                      prefixIcon: const Icon(Icons.lock_outline,
-                          size: 20, color: AppColors.textMuted),
+                      labelStyle: TextStyle(color: AppColors.textTertiary),
+                      prefixIcon: const Icon(
+                        Icons.lock_outline,
+                        size: 20,
+                        color: AppColors.textMuted,
+                      ),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscure
-                              ? Icons.visibility_off
-                              : Icons.visibility,
+                          _obscure ? Icons.visibility_off : Icons.visibility,
                           size: 20,
                           color: AppColors.textMuted,
                         ),
-                        onPressed: () =>
-                            setState(() => _obscure = !_obscure),
+                        onPressed: () => setState(() => _obscure = !_obscure),
                       ),
                     ),
                   ),
@@ -243,13 +253,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     controller: _confirmCtrl,
                     obscureText: _obscure,
                     style: const TextStyle(
-                        color: AppColors.textPrimary, fontSize: 14),
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Confirm Password',
-                      labelStyle:
-                          TextStyle(color: AppColors.textTertiary),
-                      prefixIcon: const Icon(Icons.lock_outline,
-                          size: 20, color: AppColors.textMuted),
+                      labelStyle: TextStyle(color: AppColors.textTertiary),
+                      prefixIcon: const Icon(
+                        Icons.lock_outline,
+                        size: 20,
+                        color: AppColors.textMuted,
+                      ),
                     ),
                     onSubmitted: (_) => _register(),
                   ),
@@ -292,11 +306,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text('Create Account',
+                          : const Text(
+                              'Create Account',
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
-                              )),
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 10),

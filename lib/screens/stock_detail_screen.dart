@@ -1,14 +1,65 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import '../core/theme/app_colors.dart';
 import '../core/utils/formatters.dart';
+import '../core/api_client.dart';
+import '../core/constants/api_constants.dart';
 import '../models/stock_data.dart';
 import '../widgets/glassmorphic_card.dart';
 import '../widgets/score_badge.dart';
 
 /// Detailed view of a single stock with full fundamental breakdown.
-class StockDetailScreen extends StatelessWidget {
+class StockDetailScreen extends StatefulWidget {
   final StockData stock;
   const StockDetailScreen({super.key, required this.stock});
+
+  @override
+  State<StockDetailScreen> createState() => _StockDetailScreenState();
+}
+
+class _StockDetailScreenState extends State<StockDetailScreen> {
+  String? _explanation;
+  bool _isExplaining = false;
+  bool _showExplanation = false;
+
+  StockData get stock => widget.stock;
+
+  Future<void> _fetchExplanation() async {
+    if (_explanation != null) {
+      setState(() => _showExplanation = !_showExplanation);
+      return;
+    }
+
+    setState(() {
+      _isExplaining = true;
+      _showExplanation = true;
+    });
+
+    try {
+      final response = await ApiClient.instance.get(
+        ApiConstants.aiExplain(stock.ticker),
+        options: Options(
+          receiveTimeout: const Duration(seconds: 120),
+        ),
+      );
+      final data = response.data as Map<String, dynamic>;
+      setState(() {
+        _explanation = data['explanation'] as String? ?? 'Tidak ada penjelasan.';
+      });
+    } on DioException catch (e) {
+      setState(() {
+        if (e.response?.statusCode == 502) {
+          _explanation = '⚠️ API key belum dikonfigurasi. Set OPENROUTER_API_KEY di backend/.env';
+        } else {
+          _explanation = '❌ Error: ${e.response?.data?['detail'] ?? e.message}';
+        }
+      });
+    } catch (e) {
+      setState(() => _explanation = '❌ Error: $e');
+    } finally {
+      setState(() => _isExplaining = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +134,111 @@ class StockDetailScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
+                // AI Explain Decision
+                GestureDetector(
+                  onTap: _isExplaining ? null : _fetchExplanation,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          AppColors.primary.withValues(alpha: 0.08),
+                          AppColors.accent.withValues(alpha: 0.05),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.auto_awesome,
+                          size: 16,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _showExplanation
+                                ? 'Sembunyikan Penjelasan AI'
+                                : '🤖 Jelaskan Keputusan Ini',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                        if (_isExplaining)
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primary,
+                            ),
+                          )
+                        else
+                          Icon(
+                            _showExplanation
+                                ? Icons.expand_less_rounded
+                                : Icons.expand_more_rounded,
+                            size: 18,
+                            color: AppColors.primary,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_showExplanation && _explanation != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.auto_awesome,
+                              size: 12,
+                              color: AppColors.accent,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'AI Analysis',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.accent,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _explanation!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                            height: 1.6,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 // Fundamentals
                 _SectionTitle(title: 'FUNDAMENTALS'),
                 const SizedBox(height: 8),
