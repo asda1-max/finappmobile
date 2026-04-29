@@ -6,6 +6,7 @@ class LocalDbService {
   static const _stockCacheBox = 'stockCache';
   static const _userPrefsBox = 'userPrefs';
   static const _searchHistoryBox = 'searchHistory';
+  static const _savedTickersKey = 'saved_tickers';
 
   /// Initialize Hive — call once in main() before runApp().
   static Future<void> init() async {
@@ -60,6 +61,24 @@ class LocalDbService {
   static T? getPreference<T>(String key) {
     final box = Hive.box(_userPrefsBox);
     return box.get(key) as T?;
+  }
+
+  // ── Saved Tickers ──
+
+  /// Save ticker list for quick access.
+  static Future<void> saveTickers(List<String> tickers) async {
+    final box = Hive.box(_userPrefsBox);
+    await box.put(_savedTickersKey, tickers);
+  }
+
+  /// Get saved tickers (empty if none).
+  static List<String> getSavedTickers() {
+    final box = Hive.box(_userPrefsBox);
+    final raw = box.get(_savedTickersKey);
+    if (raw is List) {
+      return raw.map((e) => e.toString()).toList();
+    }
+    return [];
   }
 
   // ── Search History ──

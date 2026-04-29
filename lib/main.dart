@@ -15,7 +15,10 @@ import 'screens/login_screen.dart';
 import 'screens/ranking_screen.dart';
 import 'screens/stock_detail_screen.dart';
 import 'screens/settings_screen.dart';
-import 'screens/nearby_screen.dart';
+import 'screens/utilities_screen.dart';
+import 'screens/profile_screen.dart';
+import 'screens/feedback_screen.dart';
+import 'screens/logout_screen.dart';
 
 // ── Providers ──
 
@@ -25,15 +28,17 @@ final stockRepositoryProvider = Provider<StockRepository>((ref) {
 
 class TickerListNotifier extends Notifier<List<String>> {
   @override
-  List<String> build() => [];
+  List<String> build() => LocalDbService.getSavedTickers();
 
   void addTicker(String symbol) {
     if (symbol.isEmpty || state.contains(symbol)) return;
     state = [...state, symbol];
+    LocalDbService.saveTickers(state);
   }
 
   void removeTicker(String symbol) {
     state = state.where((item) => item != symbol).toList();
+    LocalDbService.saveTickers(state);
   }
 }
 
@@ -169,8 +174,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     final screens = [
       const DashboardScreen(),
       RankingScreen(stocks: stocks),
-      const NearbyScreen(),
-      SettingsScreenWithLogout(onLogout: widget.onLogout),
+      const UtilitiesScreen(),
+      const ProfileScreen(),
+      const FeedbackScreen(),
+      LogoutScreen(onLogout: widget.onLogout),
     ];
 
     return Scaffold(
@@ -209,18 +216,31 @@ class _AppShellState extends ConsumerState<AppShell> {
               label: 'Rankings',
             ),
             NavigationDestination(
-              icon: Icon(Icons.location_on_rounded,
+              icon: Icon(Icons.currency_exchange_rounded,
                   color: AppColors.textMuted),
-              selectedIcon: Icon(Icons.location_on_rounded,
+              selectedIcon: Icon(Icons.currency_exchange_rounded,
                   color: AppColors.primary),
-              label: 'Nearby',
+              label: 'Utilities',
             ),
             NavigationDestination(
               icon:
-                  Icon(Icons.settings_rounded, color: AppColors.textMuted),
+                  Icon(Icons.person_rounded, color: AppColors.textMuted),
               selectedIcon:
-                  Icon(Icons.settings_rounded, color: AppColors.primary),
-              label: 'Settings',
+                  Icon(Icons.person_rounded, color: AppColors.primary),
+              label: 'Profil',
+            ),
+            NavigationDestination(
+              icon:
+                  Icon(Icons.feedback_rounded, color: AppColors.textMuted),
+              selectedIcon:
+                  Icon(Icons.feedback_rounded, color: AppColors.primary),
+              label: 'Saran & Kesan',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.logout_rounded, color: AppColors.textMuted),
+              selectedIcon:
+                  Icon(Icons.logout_rounded, color: AppColors.primary),
+              label: 'Logout',
             ),
           ],
         ),
