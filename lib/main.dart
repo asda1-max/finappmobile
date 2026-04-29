@@ -67,6 +67,12 @@ void main() async {
   // Initialize Hive local database
   await LocalDbService.init();
 
+  // Load saved API base URL if any
+  final savedBaseUrl = LocalDbService.getPreference<String>('api_base_url');
+  if (savedBaseUrl != null && savedBaseUrl.trim().isNotEmpty) {
+    ApiClient.updateBaseUrl(savedBaseUrl.trim());
+  }
+
   // Restore JWT session if exists
   final savedToken = await SessionService.getToken();
   if (savedToken != null && savedToken.isNotEmpty) {
@@ -852,7 +858,7 @@ class _StockCard extends StatelessWidget {
           const SizedBox(height: 10),
 
           // Hybrid Score bar
-          if (stock.effectiveHybridScore > 0) ...[
+          if (stock.displayHybridScore > 0) ...[
             Row(
               children: [
                 Text('Hybrid Score',
@@ -860,12 +866,12 @@ class _StockCard extends StatelessWidget {
                         fontSize: 10, color: AppColors.textMuted)),
                 const Spacer(),
                 Text(
-                  Formatters.score(stock.effectiveHybridScore),
+                  Formatters.score(stock.displayHybridScore),
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: AppColors.scoreColor(
-                        stock.effectiveHybridScore),
+                        stock.displayHybridScore),
                   ),
                 ),
               ],
@@ -874,11 +880,11 @@ class _StockCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: stock.effectiveHybridScore.clamp(0.0, 1.0),
+                value: stock.displayHybridScore.clamp(0.0, 1.0),
                 minHeight: 4,
                 backgroundColor: AppColors.surfaceLight,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                    AppColors.scoreColor(stock.effectiveHybridScore)),
+                    AppColors.scoreColor(stock.displayHybridScore)),
               ),
             ),
             const SizedBox(height: 10),

@@ -51,7 +51,7 @@ class _RankingScreenState extends ConsumerState<RankingScreen>
     switch (criteria) {
       case RankingCriteria.hybridScore:
         sorted.sort((a, b) =>
-            b.effectiveHybridScore.compareTo(a.effectiveHybridScore));
+            b.displayHybridScore.compareTo(a.displayHybridScore));
       case RankingCriteria.mos:
         sorted.sort((a, b) => b.mos.compareTo(a.mos));
       case RankingCriteria.qualityScore:
@@ -68,7 +68,7 @@ class _RankingScreenState extends ConsumerState<RankingScreen>
   String _criteriaValue(StockData stock, RankingCriteria criteria) {
     switch (criteria) {
       case RankingCriteria.hybridScore:
-        return Formatters.score(stock.effectiveHybridScore);
+        return Formatters.score(stock.displayHybridScore);
       case RankingCriteria.mos:
         return Formatters.percent(stock.mos);
       case RankingCriteria.qualityScore:

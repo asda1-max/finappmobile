@@ -46,7 +46,7 @@ class StockDetailScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       _DecisionGauge(
-                        score: stock.effectiveHybridScore,
+                        score: stock.displayHybridScore,
                         decision: stock.effectiveDecision,
                         category: stock.effectiveCategory,
                       ),

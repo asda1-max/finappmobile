@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import '../core/theme/app_colors.dart';
 import '../core/api_client.dart';
+import '../core/constants/api_constants.dart';
 import '../core/services/session_service.dart';
 import '../core/services/biometric_service.dart';
+import '../core/services/local_db_service.dart';
 import '../data/auth_repository.dart';
 import '../widgets/glassmorphic_card.dart';
 import 'register_screen.dart';
@@ -120,6 +122,52 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _openApiSettings() async {
+    final controller = TextEditingController(
+      text: LocalDbService.getPreference<String>('api_base_url') ??
+          ApiConstants.baseUrl,
+    );
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('API Base URL'),
+        content: TextField(
+          controller: controller,
+          style: const TextStyle(color: AppColors.textPrimary),
+          decoration: InputDecoration(
+            hintText: 'http://192.168.1.10:8000',
+            hintStyle: TextStyle(color: AppColors.textMuted),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Save',
+                style: TextStyle(color: AppColors.primary)),
+          ),
+        ],
+      ),
+    );
+
+    if (saved == true) {
+      final value = controller.text.trim();
+      if (value.isNotEmpty) {
+        await LocalDbService.savePreference('api_base_url', value);
+        ApiClient.updateBaseUrl(value);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('API base URL updated')),
+          );
+        }
+      }
     }
   }
 
@@ -276,6 +324,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
                                   )),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextButton.icon(
+                        onPressed: _openApiSettings,
+                        icon: const Icon(Icons.settings_rounded, size: 16),
+                        label: const Text('API Settings'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.textSecondary,
                         ),
                       ),
 

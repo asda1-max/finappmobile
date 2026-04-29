@@ -136,6 +136,10 @@ class StockData {
   double get effectiveHybridScore =>
       finalHybridScore ?? baseHybridScore ?? hybridScore ?? 0.0;
 
+    /// Display score aligned with base (no-CAGR) score when available
+    double get displayHybridScore =>
+      baseHybridScore ?? hybridScore ?? finalHybridScore ?? 0.0;
+
   /// The effective hybrid category
   String get effectiveCategory =>
       finalHybridCategory ??
