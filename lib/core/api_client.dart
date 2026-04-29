@@ -5,6 +5,8 @@ import 'constants/api_constants.dart';
 class ApiClient {
   ApiClient._();
 
+  static String? _authToken;
+
   static final Dio _dio = Dio(
     BaseOptions(
       baseUrl: ApiConstants.baseUrl,
@@ -17,15 +19,36 @@ class ApiClient {
       },
     ),
   )..interceptors.addAll([
+      _AuthInterceptor(),
       _LoggingInterceptor(),
       _RetryInterceptor(),
     ]);
 
   static Dio get instance => _dio;
 
-  /// Update the base URL at runtime (e.g., from settings).
+  /// Set JWT auth token for all subsequent requests.
+  static void setAuthToken(String? token) {
+    _authToken = token;
+  }
+
+  /// Get current auth token.
+  static String? get authToken => _authToken;
+
+  /// Update the base URL at runtime.
   static void updateBaseUrl(String newUrl) {
     _dio.options.baseUrl = newUrl;
+  }
+}
+
+/// Automatically attaches JWT Bearer token to all requests.
+class _AuthInterceptor extends Interceptor {
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    final token = ApiClient._authToken;
+    if (token != null && token.isNotEmpty) {
+      options.headers['Authorization'] = 'Bearer $token';
+    }
+    handler.next(options);
   }
 }
 

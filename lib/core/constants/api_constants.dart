@@ -29,6 +29,11 @@ class ApiConstants {
   static const String performanceOverview = '/performance-overview';
   static const String rankingData = '/ranking-data';
 
+  // Auth endpoints
+  static const String authRegister = '/auth/register';
+  static const String authLogin = '/auth/login';
+  static const String authMe = '/auth/me';
+
   /// Delete a specific ticker entry
   static String deleteEntry(String ticker) => '/entry/$ticker';
 

@@ -4,13 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/formatters.dart';
+import 'core/api_client.dart';
+import 'core/services/session_service.dart';
+import 'core/services/local_db_service.dart';
 import 'models/stock_data.dart';
 import 'data/stock_repository.dart';
 import 'widgets/glassmorphic_card.dart';
 import 'widgets/score_badge.dart';
+import 'screens/login_screen.dart';
 import 'screens/ranking_screen.dart';
 import 'screens/stock_detail_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/nearby_screen.dart';
 
 // ── Providers ──
 
@@ -51,8 +56,18 @@ String normalizeSymbol(String input, bool useJakartaSuffix) {
 
 // ── App ──
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Hive local database
+  await LocalDbService.init();
+
+  // Restore JWT session if exists
+  final savedToken = await SessionService.getToken();
+  if (savedToken != null && savedToken.isNotEmpty) {
+    ApiClient.setAuthToken(savedToken);
+  }
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -73,15 +88,71 @@ class MyApp extends StatelessWidget {
       title: 'Tick Watchers',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: const AppShell(),
+      home: const AuthGate(),
     );
   }
 }
 
-// ── App Shell with Bottom Navigation ──
+// ── Auth Gate — routes to Login or AppShell based on session ──
+
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  bool _checking = true;
+  bool _loggedIn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSession();
+  }
+
+  Future<void> _checkSession() async {
+    final isLoggedIn = await SessionService.isLoggedIn();
+    setState(() {
+      _loggedIn = isLoggedIn;
+      _checking = false;
+    });
+  }
+
+  void _onLoginSuccess() {
+    setState(() => _loggedIn = true);
+  }
+
+  void _onLogout() async {
+    await SessionService.clearSession();
+    ApiClient.setAuthToken(null);
+    setState(() => _loggedIn = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_checking) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+            child: CircularProgressIndicator(color: AppColors.primary)),
+      );
+    }
+
+    if (!_loggedIn) {
+      return LoginScreen(onLoginSuccess: _onLoginSuccess);
+    }
+
+    return AppShell(onLogout: _onLogout);
+  }
+}
+
+// ── App Shell with Bottom Navigation (4 tabs) ──
 
 class AppShell extends ConsumerStatefulWidget {
-  const AppShell({super.key});
+  final VoidCallback onLogout;
+  const AppShell({super.key, required this.onLogout});
 
   @override
   ConsumerState<AppShell> createState() => _AppShellState();
@@ -98,7 +169,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     final screens = [
       const DashboardScreen(),
       RankingScreen(stocks: stocks),
-      const SettingsScreen(),
+      const NearbyScreen(),
+      SettingsScreenWithLogout(onLogout: widget.onLogout),
     ];
 
     return Scaffold(
@@ -137,11 +209,86 @@ class _AppShellState extends ConsumerState<AppShell> {
               label: 'Rankings',
             ),
             NavigationDestination(
+              icon: Icon(Icons.location_on_rounded,
+                  color: AppColors.textMuted),
+              selectedIcon: Icon(Icons.location_on_rounded,
+                  color: AppColors.primary),
+              label: 'Nearby',
+            ),
+            NavigationDestination(
               icon:
                   Icon(Icons.settings_rounded, color: AppColors.textMuted),
               selectedIcon:
                   Icon(Icons.settings_rounded, color: AppColors.primary),
               label: 'Settings',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Settings Screen Wrapper with Logout ──
+
+class SettingsScreenWithLogout extends StatelessWidget {
+  final VoidCallback onLogout;
+  const SettingsScreenWithLogout({super.key, required this.onLogout});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(child: const SettingsScreen()),
+            // Logout button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: AppColors.surface,
+                        title: const Text('Logout'),
+                        content:
+                            const Text('Are you sure you want to logout?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Logout',
+                                style:
+                                    TextStyle(color: AppColors.sellRed)),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true) {
+                      await SessionService.setBiometricEnabled(false);
+                      onLogout();
+                    }
+                  },
+                  icon: const Icon(Icons.logout_rounded, size: 18),
+                  label: const Text('Logout'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.sellRed,
+                    side: BorderSide(
+                        color: AppColors.sellRed.withValues(alpha: 0.5)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -175,6 +322,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (normalized.isEmpty) return;
     setState(() => _isAdding = true);
     ref.read(tickerListProvider.notifier).addTicker(normalized);
+    // Save to search history
+    await LocalDbService.addSearchHistory(normalized);
     _controller.clear();
     FocusScope.of(context).unfocus();
     setState(() => _isAdding = false);
@@ -461,7 +610,6 @@ class _StockCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final decision = stock.effectiveDecision;
-
     final category = stock.effectiveCategory;
 
     return GlassmorphicCard(
@@ -590,16 +738,13 @@ class _StockCard extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
-              _MiniMetric(
-                  'MOS', Formatters.percent(stock.mos)),
-              _MiniMetric(
-                  'ROE', Formatters.percent(stock.roe)),
+              _MiniMetric('MOS', Formatters.percent(stock.mos)),
+              _MiniMetric('ROE', Formatters.percent(stock.roe)),
               _MiniMetric('PER', Formatters.ratio(stock.perNow)),
               _MiniMetric('PBV', Formatters.ratio(stock.pbv)),
               _MiniMetric(
                   'Div', Formatters.percent(stock.dividendYieldPercent)),
-              _MiniMetric('Disc',
-                  Formatters.score(stock.discountScore)),
+              _MiniMetric('Disc', Formatters.score(stock.discountScore)),
             ],
           ),
 

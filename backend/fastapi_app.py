@@ -2,7 +2,7 @@ from typing import List
 from pathlib import Path
 import json
 import math
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -105,6 +105,133 @@ class HybridConfigPayload(BaseModel):
     use_cagr: HybridModeConfigPayload
     no_cagr: HybridModeConfigPayload
 
+
+# ── Auth Models & Helpers ──
+
+import bcrypt
+import jwt as pyjwt
+from typing import Optional
+import uuid
+
+JWT_SECRET = os.environ.get("JWT_SECRET", "tick-watchers-secret-key-change-in-prod")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRY_HOURS = 24
+
+USERS_JSON_PATH = (
+    (_data_dir / "users.json") if _data_dir_env else Path(__file__).with_name("users.json")
+)
+
+
+class RegisterPayload(BaseModel):
+    username: str
+    email: str
+    password: str
+
+
+class LoginPayload(BaseModel):
+    username: str
+    password: str
+
+
+def _load_users() -> dict:
+    if not USERS_JSON_PATH.exists():
+        return {}
+    try:
+        return json.loads(USERS_JSON_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+
+def _save_users(users: dict) -> None:
+    USERS_JSON_PATH.write_text(json.dumps(users, indent=2), encoding="utf-8")
+
+
+def _create_jwt(user_id: str, username: str) -> str:
+    payload = {
+        "sub": user_id,
+        "username": username,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRY_HOURS),
+        "iat": datetime.now(timezone.utc),
+    }
+    return pyjwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def _verify_jwt(token: str) -> Optional[dict]:
+    try:
+        return pyjwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except pyjwt.ExpiredSignatureError:
+        return None
+    except pyjwt.InvalidTokenError:
+        return None
+
+
+@app.post("/auth/register")
+async def register_user(payload: RegisterPayload):
+    """Register a new user with bcrypt-hashed password."""
+    username = payload.username.strip().lower()
+    if len(username) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
+    if len(payload.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    users = _load_users()
+    if username in users:
+        raise HTTPException(status_code=409, detail="Username already exists")
+
+    hashed = bcrypt.hashpw(payload.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    user_id = str(uuid.uuid4())
+
+    users[username] = {
+        "id": user_id,
+        "username": username,
+        "email": payload.email.strip(),
+        "password_hash": hashed,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _save_users(users)
+
+    token = _create_jwt(user_id, username)
+    return {"token": token, "username": username, "email": payload.email.strip(), "user_id": user_id}
+
+
+@app.post("/auth/login")
+async def login_user(payload: LoginPayload):
+    """Login with username + password, returns JWT token."""
+    username = payload.username.strip().lower()
+    users = _load_users()
+
+    user = users.get(username)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    if not bcrypt.checkpw(payload.password.encode("utf-8"), user["password_hash"].encode("utf-8")):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    token = _create_jwt(user["id"], username)
+    return {"token": token, "username": username, "email": user["email"], "user_id": user["id"]}
+
+
+@app.get("/auth/me")
+async def get_current_user(authorization: str = Query(None, alias="token")):
+    """Get current user profile from JWT token."""
+    from fastapi import Header
+
+    # Accept token from query param or Authorization header
+    # In real usage the Flutter app sends Authorization header
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Token required")
+
+    token = authorization.replace("Bearer ", "") if authorization.startswith("Bearer ") else authorization
+    decoded = _verify_jwt(token)
+    if not decoded:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    users = _load_users()
+    user = users.get(decoded.get("username", ""))
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {"user_id": user["id"], "username": user["username"], "email": user["email"]}
 
 def _load_cagr_data() -> dict:
     if not CAGR_JSON_PATH.exists():
