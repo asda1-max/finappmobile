@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
+import '../core/services/local_db_service.dart';
 import '../data/stock_repository.dart';
 import '../widgets/glassmorphic_card.dart';
 
@@ -16,6 +17,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _repo = StockRepository();
   bool _loading = true;
   String? _statusMsg;
+
+  final TextEditingController _alertThresholdController =
+      TextEditingController();
+  final TextEditingController _alertSearchController = TextEditingController();
+  bool _alertEnabled = false;
+  String _alertTicker = '';
+  double _alertThreshold = 5.0;
+  List<String> _alertCandidates = [];
 
   // use_cagr weights
   final _useCagrWeights = List<double>.filled(8, 0.0);
@@ -37,6 +46,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void initState() {
     super.initState();
     _loadConfig();
+    _loadAlertPrefs();
+  }
+
+  @override
+  void dispose() {
+    _alertThresholdController.dispose();
+    _alertSearchController.dispose();
+    super.dispose();
+  }
+
+  void _loadAlertPrefs() {
+    final saved = LocalDbService.getSavedTickers();
+    _alertCandidates = saved;
+    _alertEnabled =
+        LocalDbService.getPreference<bool>('alert_enabled') ?? false;
+    final thresholdRaw =
+        LocalDbService.getPreference<num>('alert_threshold') ?? 5.0;
+    _alertThreshold = thresholdRaw.toDouble();
+    _alertTicker =
+        LocalDbService.getPreference<String>('alert_ticker') ??
+            (saved.isNotEmpty ? saved.first : '');
+    _alertThresholdController.text =
+        _alertThreshold.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
+  }
+
+  void _saveAlertPrefs() {
+    final parsed = double.tryParse(_alertThresholdController.text);
+    if (parsed == null || parsed <= 0) {
+      setState(() => _statusMsg = 'Threshold alert tidak valid');
+      return;
+    }
+    _alertThreshold = parsed;
+    LocalDbService.savePreference('alert_enabled', _alertEnabled);
+    LocalDbService.savePreference('alert_ticker', _alertTicker);
+    LocalDbService.savePreference('alert_threshold', _alertThreshold);
+    setState(() => _statusMsg = 'Alert harga tersimpan ✓');
   }
 
   Future<void> _loadConfig() async {
@@ -137,6 +182,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       );
     }
 
+    final query = _alertSearchController.text.trim().toUpperCase();
+    final filteredTickers = _alertCandidates
+        .where((t) => t.toUpperCase().contains(query))
+        .toList();
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -166,6 +216,130 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Text(
               'Adjust criteria weights for with-CAGR and no-CAGR modes.',
               style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+            ),
+            const SizedBox(height: 16),
+
+            // Alert Settings
+            GlassmorphicCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.notifications_active_rounded,
+                          size: 16, color: AppColors.primary),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Alert Harga (Notifikasi)',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const Spacer(),
+                      Switch(
+                        value: _alertEnabled,
+                        onChanged: (v) => setState(() => _alertEnabled = v),
+                        activeTrackColor: AppColors.primary,
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Notifikasi saat ticker naik melebihi threshold.',
+                    style: TextStyle(fontSize: 11, color: AppColors.textTertiary),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _alertSearchController,
+                    style: const TextStyle(color: AppColors.textPrimary),
+                    decoration: InputDecoration(
+                      labelText: 'Cari ticker tersimpan',
+                      labelStyle: TextStyle(color: AppColors.textTertiary),
+                      prefixIcon: const Icon(Icons.search_rounded,
+                          size: 18, color: AppColors.textMuted),
+                      filled: true,
+                      fillColor: AppColors.card,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AppColors.cardBorder),
+                      ),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 8),
+                  if (filteredTickers.isEmpty)
+                    Text(
+                      'Belum ada ticker tersimpan. Tambahkan dari Dashboard.',
+                      style: TextStyle(
+                          fontSize: 11, color: AppColors.textTertiary),
+                    )
+                  else
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: filteredTickers.map((ticker) {
+                        final selected = ticker == _alertTicker;
+                        return ChoiceChip(
+                          label: Text(ticker),
+                          selected: selected,
+                          onSelected: (_) =>
+                              setState(() => _alertTicker = ticker),
+                          selectedColor:
+                              AppColors.primary.withValues(alpha: 0.2),
+                          backgroundColor: AppColors.card,
+                          labelStyle: TextStyle(
+                            color: selected
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                            fontSize: 11,
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                          side: BorderSide(color: AppColors.cardBorder),
+                        );
+                      }).toList(),
+                    ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _alertThresholdController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          style:
+                              const TextStyle(color: AppColors.textPrimary),
+                          decoration: InputDecoration(
+                            labelText: 'Threshold naik (%)',
+                            labelStyle:
+                                TextStyle(color: AppColors.textTertiary),
+                            filled: true,
+                            fillColor: AppColors.card,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  BorderSide(color: AppColors.cardBorder),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        height: 46,
+                        child: ElevatedButton.icon(
+                          onPressed: _saveAlertPrefs,
+                          icon: const Icon(Icons.save_rounded, size: 16),
+                          label: const Text('Simpan'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
 

@@ -1,6 +1,8 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import '../core/theme/app_colors.dart';
+import '../core/services/local_db_service.dart';
 import '../widgets/glassmorphic_card.dart';
 
 class UtilitiesScreen extends StatefulWidget {
@@ -35,10 +37,16 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
   String _baseZone = 'WIB (UTC+7)';
   TimeOfDay _baseTime = TimeOfDay.now();
 
+  final _rng = Random();
+  List<String> _gachaPool = [];
+  String? _gachaResult;
+  String _gachaMessage = 'Tekan tombol untuk memilih saham dari watchlist.';
+
   @override
   void initState() {
     super.initState();
     _recalculate();
+    _loadGachaPool();
   }
 
   @override
@@ -58,6 +66,26 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
     final toRate = _rates[_toCurrency] ?? 1.0;
     final usd = amount / fromRate;
     setState(() => _converted = usd * toRate);
+  }
+
+  void _loadGachaPool() {
+    _gachaPool = LocalDbService.getSavedTickers();
+  }
+
+  void _spinGacha() {
+    _loadGachaPool();
+    if (_gachaPool.isEmpty) {
+      setState(() {
+        _gachaResult = null;
+        _gachaMessage = 'Watchlist kosong. Tambahkan ticker di Dashboard.';
+      });
+      return;
+    }
+    final picked = _gachaPool[_rng.nextInt(_gachaPool.length)];
+    setState(() {
+      _gachaResult = picked;
+      _gachaMessage = 'Saham rekomendasi acak untuk hari ini:';
+    });
   }
 
   Future<void> _pickTime() async {
@@ -368,6 +396,83 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                     subtitle: 'Rotasi & arah perangkat',
                     icon: Icons.explore_rounded,
                     stream: gyroscopeEvents,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Mini Game
+            GlassmorphicCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '🎮 Mini Game: Gacha Saham Hari Ini',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Random pick dari watchlist untuk bantu keputusan cepat.',
+                    style:
+                        TextStyle(fontSize: 11, color: AppColors.textTertiary),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Text(
+                      _gachaMessage,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (_gachaResult != null) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.cardBorder),
+                      ),
+                      child: Text(
+                        _gachaResult!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _spinGacha,
+                          icon: const Icon(Icons.casino_rounded, size: 18),
+                          label: const Text('Randomize'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

@@ -177,6 +177,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       const UtilitiesScreen(),
       const ProfileScreen(),
       const FeedbackScreen(),
+      const SettingsScreen(),
       LogoutScreen(onLogout: widget.onLogout),
     ];
 
@@ -235,6 +236,13 @@ class _AppShellState extends ConsumerState<AppShell> {
               selectedIcon:
                   Icon(Icons.feedback_rounded, color: AppColors.primary),
               label: 'Saran & Kesan',
+            ),
+            NavigationDestination(
+              icon:
+                  Icon(Icons.settings_rounded, color: AppColors.textMuted),
+              selectedIcon:
+                  Icon(Icons.settings_rounded, color: AppColors.primary),
+              label: 'Settings',
             ),
             NavigationDestination(
               icon: Icon(Icons.logout_rounded, color: AppColors.textMuted),
@@ -328,12 +336,16 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   final TextEditingController _controller = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   bool _useJakartaSuffix = true;
   bool _isAdding = false;
+  String _searchQuery = '';
+  String? _lastAlertKey;
 
   @override
   void dispose() {
     _controller.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -349,8 +361,83 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     setState(() => _isAdding = false);
   }
 
+  void _maybeNotify(List<StockData> stocks) {
+    if (!mounted) return;
+    final enabled =
+        LocalDbService.getPreference<bool>('alert_enabled') ?? false;
+    final tickerPref =
+        (LocalDbService.getPreference<String>('alert_ticker') ?? '')
+            .toUpperCase();
+    final threshold =
+        (LocalDbService.getPreference<num>('alert_threshold') ?? 5.0)
+            .toDouble();
+    if (!enabled || tickerPref.isEmpty) return;
+
+    final stock = stocks.firstWhere(
+      (s) => s.ticker.toUpperCase() == tickerPref,
+      orElse: () => const StockData(
+        ticker: '',
+        name: '',
+        sector: '',
+        industry: '',
+        price: 0,
+        revenueAnnual: 0,
+        epsNow: 0,
+        perNow: 0,
+        high52: 0,
+        low52: 0,
+        shares: 0,
+        marketCap: 0,
+        downFromHigh: 0,
+        downFromMonth: 0,
+        downFromWeek: 0,
+        downFromToday: 0,
+        riseFromLow: 0,
+        bvpPerShare: 0,
+        roe: 0,
+        grahamNumber: 0,
+        mos: 0,
+        freeCashflow: 0,
+        pbv: 0,
+        qualityScore: 0,
+        qualityLabel: '-',
+        decisionBuy: 'NO BUY',
+        decisionDiscount: '-',
+        discountScore: 0,
+        decisionDividend: '-',
+        isRateLimited: false,
+      ),
+    );
+
+    if (stock.ticker.isEmpty) return;
+
+    final changeUp = -stock.downFromToday;
+    if (changeUp < threshold) return;
+
+    final key =
+        '${stock.ticker}:${changeUp.toStringAsFixed(2)}:$threshold';
+    if (_lastAlertKey == key) return;
+    _lastAlertKey = key;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '${stock.ticker} naik ${changeUp.toStringAsFixed(2)}% (>= $threshold%)',
+        ),
+        backgroundColor: AppColors.buyGreen,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<List<StockData>>>(
+      stockDataProvider,
+      (previous, next) {
+        next.whenData(_maybeNotify);
+      },
+    );
     final stocksAsync = ref.watch(stockDataProvider);
 
     return Scaffold(
@@ -506,10 +593,50 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
 
+              // Search Portfolio
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: TextField(
+                    controller: _searchController,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      hintText: 'Cari ticker / nama perusahaan',
+                      hintStyle: TextStyle(color: AppColors.textMuted),
+                      prefixIcon: const Icon(Icons.search_rounded,
+                          size: 18, color: AppColors.textMuted),
+                      filled: true,
+                      fillColor: AppColors.card,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AppColors.cardBorder),
+                      ),
+                    ),
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                  ),
+                ),
+              ),
+
               // Stock Cards
               stocksAsync.when(
                 data: (stocks) {
-                  if (stocks.isEmpty) {
+                  final query = _searchQuery.trim().toUpperCase();
+                  final filtered = query.isEmpty
+                      ? stocks
+                      : stocks
+                          .where((stock) =>
+                              stock.ticker.toUpperCase().contains(query) ||
+                              stock.name.toUpperCase().contains(query))
+                          .toList();
+
+                  if (filtered.isEmpty) {
                     return SliverFillRemaining(
                       child: Center(
                         child: Column(
@@ -519,7 +646,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 size: 56, color: AppColors.textMuted),
                             const SizedBox(height: 12),
                             Text(
-                              'No stocks yet',
+                              query.isEmpty
+                                  ? 'No stocks yet'
+                                  : 'Tidak ada hasil pencarian',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -528,7 +657,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Enter a ticker above to start tracking',
+                              query.isEmpty
+                                  ? 'Enter a ticker above to start tracking'
+                                  : 'Coba kata kunci lain',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textMuted,
@@ -545,7 +676,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
-                          final stock = stocks[index];
+                          final stock = filtered[index];
                           return _StockCard(
                             stock: stock,
                             onTap: () {
@@ -559,7 +690,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             },
                           );
                         },
-                        childCount: stocks.length,
+                        childCount: filtered.length,
                       ),
                     ),
                   );
