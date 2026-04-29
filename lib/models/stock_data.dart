@@ -54,6 +54,7 @@ class StockData {
   final String? finalDecisionBuy;
   final double? finalHybridScore;
   final String? finalHybridCategory;
+  final double? absoluteHybridScore;
   final String? executionDecision;
   final String? safetyCheck;
   final String? qualityVerdict;
@@ -117,6 +118,7 @@ class StockData {
     this.finalDecisionBuy,
     this.finalHybridScore,
     this.finalHybridCategory,
+    this.absoluteHybridScore,
     this.executionDecision,
     this.safetyCheck,
     this.qualityVerdict,
@@ -138,7 +140,7 @@ class StockData {
 
     /// Display score aligned with base (no-CAGR) score when available
     double get displayHybridScore =>
-      baseHybridScore ?? hybridScore ?? finalHybridScore ?? 0.0;
+        absoluteHybridScore ?? baseHybridScore ?? hybridScore ?? finalHybridScore ?? 0.0;
 
   /// The effective hybrid category
   String get effectiveCategory =>
@@ -206,6 +208,7 @@ class StockData {
       finalDecisionBuy: json['Final Decision Buy'] as String?,
       finalHybridScore: _toDoubleOrNull(json['Final Hybrid Score']),
       finalHybridCategory: json['Final Hybrid Category'] as String?,
+      absoluteHybridScore: _toDoubleOrNull(json['Absolute Hybrid Score']),
       executionDecision: json['Execution Decision'] as String?,
       safetyCheck: json['Safety Check'] as String?,
       qualityVerdict: json['Quality Verdict'] as String?,

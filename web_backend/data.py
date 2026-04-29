@@ -847,6 +847,12 @@ def _apply_fuzzy_ahp_topsis_buy_decision(df: pd.DataFrame) -> pd.DataFrame:
                 has_cagr = True
                 cagr_source = "auto_live"
 
+        df.at[idx, "CAGR Applied"] = bool(has_cagr)
+        df.at[idx, "CAGR Source"] = cagr_source if has_cagr else "none"
+        if has_cagr:
+            df.at[idx, "CAGR Net Income Used (%)"] = float(cagr_net)
+            df.at[idx, "CAGR Revenue Used (%)"] = float(cagr_rev)
+            df.at[idx, "CAGR EPS Used (%)"] = float(cagr_eps)
         if has_cagr:
             final_result = CagrResult(
                 ticker=ticker,
@@ -881,14 +887,6 @@ def _apply_fuzzy_ahp_topsis_buy_decision(df: pd.DataFrame) -> pd.DataFrame:
                 final_decision = "NO BUY"
                 final_category = "Don't Buy"
 
-        # Tulis ke DataFrame
-        df.at[idx, "CAGR Applied"] = bool(has_cagr)
-        df.at[idx, "CAGR Source"] = cagr_source if has_cagr else "none"
-        if has_cagr:
-            df.at[idx, "CAGR Net Income Used (%)"] = float(cagr_net)
-            df.at[idx, "CAGR Revenue Used (%)"] = float(cagr_rev)
-            df.at[idx, "CAGR EPS Used (%)"] = float(cagr_eps)
-
         if base_decision:
             df.at[idx, "Decision Buy"] = base_decision
             df.at[idx, "Base Decision Buy"] = base_decision
@@ -904,12 +902,12 @@ def _apply_fuzzy_ahp_topsis_buy_decision(df: pd.DataFrame) -> pd.DataFrame:
             df.at[idx, "Final Decision Buy"] = final_decision
         if final_score is not None:
             df.at[idx, "Final Hybrid Score"] = float(final_score)
-            df.at[idx, "Absolute Hybrid Score"] = float(final_score)
         if final_category:
             df.at[idx, "Final Hybrid Category"] = str(final_category)
         df.at[idx, "Final Hybrid Mode"] = "with_cagr" if has_cagr else "no_cagr"
 
     return df
+
 
 def _apply_payout_ratio_safety_check(df: pd.DataFrame) -> pd.DataFrame:
     """Safety check terakhir sebelum eksekusi beli memakai payout ratio.
