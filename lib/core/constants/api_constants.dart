@@ -34,6 +34,11 @@ class ApiConstants {
   static const String authLogin = '/auth/login';
   static const String authMe = '/auth/me';
 
+  // AI endpoints
+  static const String aiStatus = '/ai/status';
+  static const String aiChat = '/ai/chat';
+  static String aiExplain(String ticker) => '/ai/explain/$ticker';
+
   /// Delete a specific ticker entry
   static String deleteEntry(String ticker) => '/entry/$ticker';
 

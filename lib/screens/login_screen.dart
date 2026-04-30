@@ -38,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _checkBiometric() async {
     final available = await BiometricService.isAvailable();
     final enabled = await SessionService.isBiometricEnabled();
-    final hasSession = await SessionService.isLoggedIn();
+    final hasSession = await SessionService.hasStoredCredentials();
     setState(() {
       _biometricAvailable = available;
       _biometricEnabled = enabled && hasSession;
@@ -54,6 +54,14 @@ class _LoginScreenState extends State<LoginScreen> {
     if (authenticated) {
       final token = await SessionService.getToken();
       if (token != null) {
+        // Re-activate the session (clears the soft-logout flag).
+        final username = await SessionService.getUsername();
+        final email = await SessionService.getEmail();
+        await SessionService.saveSession(
+          token: token,
+          username: username ?? '',
+          email: email ?? '',
+        );
         ApiClient.setAuthToken(token);
         widget.onLoginSuccess();
       }
@@ -93,7 +101,8 @@ class _LoginScreenState extends State<LoginScreen> {
             backgroundColor: AppColors.surface,
             title: const Text('Enable Biometric Login?'),
             content: const Text(
-                'Would you like to use fingerprint/face to unlock the app next time?'),
+              'Would you like to use fingerprint/face to unlock the app next time?',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
@@ -101,8 +110,10 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Enable',
-                    style: TextStyle(color: AppColors.primary)),
+                child: const Text(
+                  'Enable',
+                  style: TextStyle(color: AppColors.primary),
+                ),
               ),
             ],
           ),
@@ -114,10 +125,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
       widget.onLoginSuccess();
     } on DioException catch (e) {
-      final detail =
-          e.response?.data is Map ? e.response?.data['detail'] : null;
+      final detail = e.response?.data is Map
+          ? e.response?.data['detail']
+          : null;
       setState(
-          () => _error = detail?.toString() ?? 'Connection error. Is the backend running?');
+        () => _error =
+            detail?.toString() ?? 'Connection error. Is the backend running?',
+      );
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -127,7 +141,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _openApiSettings() async {
     final controller = TextEditingController(
-      text: LocalDbService.getPreference<String>('api_base_url') ??
+      text:
+          LocalDbService.getPreference<String>('api_base_url') ??
           ApiConstants.baseUrl,
     );
     final saved = await showDialog<bool>(
@@ -150,8 +165,10 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Save',
-                style: TextStyle(color: AppColors.primary)),
+            child: const Text(
+              'Save',
+              style: TextStyle(color: AppColors.primary),
+            ),
           ),
         ],
       ),
@@ -163,9 +180,9 @@ class _LoginScreenState extends State<LoginScreen> {
         await LocalDbService.savePreference('api_base_url', value);
         ApiClient.updateBaseUrl(value);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('API base URL updated')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('API base URL updated')));
         }
       }
     }
@@ -206,10 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 6),
                 Text(
                   'Decision Making Support System',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textTertiary,
-                  ),
+                  style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
                 ),
                 const SizedBox(height: 32),
 
@@ -241,13 +255,17 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextField(
                         controller: _usernameCtrl,
                         style: const TextStyle(
-                            color: AppColors.textPrimary, fontSize: 14),
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Username',
-                          labelStyle:
-                              TextStyle(color: AppColors.textTertiary),
-                          prefixIcon: const Icon(Icons.person_outline,
-                              size: 20, color: AppColors.textMuted),
+                          labelStyle: TextStyle(color: AppColors.textTertiary),
+                          prefixIcon: const Icon(
+                            Icons.person_outline,
+                            size: 20,
+                            color: AppColors.textMuted,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -257,13 +275,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         controller: _passwordCtrl,
                         obscureText: _obscure,
                         style: const TextStyle(
-                            color: AppColors.textPrimary, fontSize: 14),
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Password',
-                          labelStyle:
-                              TextStyle(color: AppColors.textTertiary),
-                          prefixIcon: const Icon(Icons.lock_outline,
-                              size: 20, color: AppColors.textMuted),
+                          labelStyle: TextStyle(color: AppColors.textTertiary),
+                          prefixIcon: const Icon(
+                            Icons.lock_outline,
+                            size: 20,
+                            color: AppColors.textMuted,
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscure
@@ -319,11 +341,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text('Login',
+                              : const Text(
+                                  'Login',
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w600,
-                                  )),
+                                  ),
+                                ),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -345,8 +369,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           label: const Text('Login with Biometric'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.primary,
-                            side:
-                                const BorderSide(color: AppColors.primary),
+                            side: const BorderSide(color: AppColors.primary),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -366,17 +389,26 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(
                       "Don't have an account? ",
                       style: TextStyle(
-                          fontSize: 13, color: AppColors.textTertiary),
+                        fontSize: 13,
+                        color: AppColors.textTertiary,
+                      ),
                     ),
                     GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => RegisterScreen(
-                                onRegisterSuccess: widget.onLoginSuccess),
-                          ),
-                        );
+                      onTap: () async {
+                        final result =
+                            await Navigator.push<Map<String, String>>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => RegisterScreen(
+                                  onRegisterSuccess: widget.onLoginSuccess,
+                                ),
+                              ),
+                            );
+                        // Pre-fill login fields with registered credentials
+                        if (result != null && mounted) {
+                          _usernameCtrl.text = result['username'] ?? '';
+                          _passwordCtrl.text = result['password'] ?? '';
+                        }
                       },
                       child: const Text(
                         'Register',

@@ -1,8 +1,12 @@
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 import json
 import math
 from datetime import datetime, timezone, date, timedelta
+
+# Load .env before anything else
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).with_name(".env"))
 
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -2198,3 +2202,144 @@ async def risk_allocation(payload: RiskAllocationRequest) -> dict:
         },
     }
 
+
+# ── AI / LLM Endpoints ──
+
+from backend.ai_service import (
+    chat_completion,
+    get_chat_system_prompt,
+    get_explain_system_prompt,
+    build_stock_context,
+    is_configured as ai_is_configured,
+)
+
+
+class AiChatPayload(BaseModel):
+    message: str
+    tickers: Optional[List[str]] = None
+
+
+@app.get("/ai/status")
+async def ai_status():
+    """Check if AI features are configured and available."""
+    return {
+        "configured": ai_is_configured(),
+        "model": os.environ.get("OPENROUTER_MODEL", "google/gemma-4-31b-it"),
+    }
+
+
+@app.post("/ai/chat")
+async def ai_chat(payload: AiChatPayload):
+    """Chat with AI Stock Analyst.
+
+    Send a message and optionally specify tickers for context.
+    If no tickers are specified, all saved tickers are used.
+    """
+    user_message = (payload.message or "").strip()
+    if not user_message:
+        raise HTTPException(status_code=400, detail="Message is required")
+
+    # Determine which tickers to use for context
+    if payload.tickers and len(payload.tickers) > 0:
+        ticker_list = [t.strip() for t in payload.tickers if t.strip()]
+    else:
+        ticker_list = _load_saved_tickers()
+
+    # Fetch stock data for context
+    stock_records: list[dict] = []
+    if ticker_list:
+        try:
+            df = get_stock_data(ticker_list)
+            stock_records = df.to_dict(orient="records")
+            # Sanitize NaN/Inf for JSON
+            for rec in stock_records:
+                for k, v in rec.items():
+                    if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                        rec[k] = 0.0
+        except Exception:
+            stock_records = []
+
+    # Build system prompt with stock context
+    system_prompt = get_chat_system_prompt(stock_records)
+
+    try:
+        response = await chat_completion(
+            system_prompt=system_prompt,
+            user_message=user_message,
+            max_tokens=1536,
+            temperature=0.7,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    return {
+        "response": response,
+        "tickers_used": [r.get("Ticker", "") for r in stock_records],
+        "model": os.environ.get("OPENROUTER_MODEL", "google/gemma-4-31b-it"),
+    }
+
+
+@app.get("/ai/explain/{ticker}")
+async def ai_explain(ticker: str):
+    """Get an AI-generated explanation of a stock's BUY/NO BUY decision.
+
+    The AI analyzes the stock's fundamental data and explains
+    why the Fuzzy AHP-TOPSIS model gave its verdict.
+    """
+    symbol = (ticker or "").strip()
+    if not symbol:
+        raise HTTPException(status_code=400, detail="Ticker is required")
+
+    # Fetch stock data
+    try:
+        df = get_stock_data([symbol])
+        records = df.to_dict(orient="records")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch stock data: {e}")
+
+    if not records:
+        raise HTTPException(status_code=404, detail=f"No data found for {symbol}")
+
+    stock_dict = records[0]
+    # Sanitize NaN/Inf
+    for k, v in stock_dict.items():
+        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+            stock_dict[k] = 0.0
+
+    decision = (
+        stock_dict.get("Execution Decision")
+        or stock_dict.get("Final Decision Buy")
+        or stock_dict.get("Decision Buy")
+        or "NO BUY"
+    )
+    hybrid_score = (
+        stock_dict.get("Absolute Hybrid Score")
+        or stock_dict.get("Base Hybrid Score")
+        or stock_dict.get("Hybrid Score")
+        or 0
+    )
+
+    system_prompt = get_explain_system_prompt(stock_dict)
+    user_message = (
+        f"Jelaskan mengapa {symbol} mendapat keputusan {decision} "
+        f"dengan Hybrid Score {hybrid_score:.3f}. "
+        f"Apa faktor utama yang mendukung dan yang melemahkan?"
+    )
+
+    try:
+        response = await chat_completion(
+            system_prompt=system_prompt,
+            user_message=user_message,
+            max_tokens=1024,
+            temperature=0.5,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    return {
+        "ticker": symbol,
+        "decision": decision,
+        "hybrid_score": hybrid_score,
+        "explanation": response,
+        "model": os.environ.get("OPENROUTER_MODEL", "google/gemma-4-31b-it"),
+    }

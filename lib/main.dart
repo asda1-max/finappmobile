@@ -19,6 +19,7 @@ import 'screens/utilities_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/feedback_screen.dart';
 import 'screens/logout_screen.dart';
+import 'screens/ai_chat_screen.dart';
 
 // ── Providers ──
 
@@ -42,8 +43,9 @@ class TickerListNotifier extends Notifier<List<String>> {
   }
 }
 
-final tickerListProvider =
-    NotifierProvider<TickerListNotifier, List<String>>(TickerListNotifier.new);
+final tickerListProvider = NotifierProvider<TickerListNotifier, List<String>>(
+  TickerListNotifier.new,
+);
 
 final stockDataProvider = FutureProvider<List<StockData>>((ref) async {
   final symbols = ref.watch(tickerListProvider);
@@ -136,7 +138,7 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   void _onLogout() async {
-    await SessionService.clearSession();
+    await SessionService.softLogout();
     ApiClient.setAuthToken(null);
     setState(() => _loggedIn = false);
   }
@@ -147,7 +149,8 @@ class _AuthGateState extends State<AuthGate> {
       return const Scaffold(
         backgroundColor: AppColors.background,
         body: Center(
-            child: CircularProgressIndicator(color: AppColors.primary)),
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
       );
     }
 
@@ -179,6 +182,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     final screens = [
       const DashboardScreen(),
+      const AiChatScreen(),
       RankingScreen(stocks: stocks),
       const UtilitiesScreen(),
       const ProfileScreen(),
@@ -188,10 +192,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     ];
 
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: screens),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: AppColors.surface,
@@ -209,51 +210,70 @@ class _AppShellState extends ConsumerState<AppShell> {
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           destinations: const [
             NavigationDestination(
-              icon:
-                  Icon(Icons.dashboard_rounded, color: AppColors.textMuted),
-              selectedIcon:
-                  Icon(Icons.dashboard_rounded, color: AppColors.primary),
+              icon: Icon(Icons.dashboard_rounded, color: AppColors.textMuted),
+              selectedIcon: Icon(
+                Icons.dashboard_rounded,
+                color: AppColors.primary,
+              ),
               label: 'Dashboard',
             ),
             NavigationDestination(
-              icon: Icon(Icons.leaderboard_rounded,
-                  color: AppColors.textMuted),
-              selectedIcon: Icon(Icons.leaderboard_rounded,
-                  color: AppColors.primary),
+              icon: Icon(Icons.auto_awesome, color: AppColors.textMuted),
+              selectedIcon: Icon(
+                Icons.auto_awesome,
+                color: AppColors.primary,
+              ),
+              label: 'Tick AI',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.leaderboard_rounded, color: AppColors.textMuted),
+              selectedIcon: Icon(
+                Icons.leaderboard_rounded,
+                color: AppColors.primary,
+              ),
               label: 'Rankings',
             ),
             NavigationDestination(
-              icon: Icon(Icons.currency_exchange_rounded,
-                  color: AppColors.textMuted),
-              selectedIcon: Icon(Icons.currency_exchange_rounded,
-                  color: AppColors.primary),
+              icon: Icon(
+                Icons.currency_exchange_rounded,
+                color: AppColors.textMuted,
+              ),
+              selectedIcon: Icon(
+                Icons.currency_exchange_rounded,
+                color: AppColors.primary,
+              ),
               label: 'Utilities',
             ),
             NavigationDestination(
-              icon:
-                  Icon(Icons.person_rounded, color: AppColors.textMuted),
-              selectedIcon:
-                  Icon(Icons.person_rounded, color: AppColors.primary),
+              icon: Icon(Icons.person_rounded, color: AppColors.textMuted),
+              selectedIcon: Icon(
+                Icons.person_rounded,
+                color: AppColors.primary,
+              ),
               label: 'Profil',
             ),
             NavigationDestination(
-              icon:
-                  Icon(Icons.feedback_rounded, color: AppColors.textMuted),
-              selectedIcon:
-                  Icon(Icons.feedback_rounded, color: AppColors.primary),
+              icon: Icon(Icons.feedback_rounded, color: AppColors.textMuted),
+              selectedIcon: Icon(
+                Icons.feedback_rounded,
+                color: AppColors.primary,
+              ),
               label: 'Saran & Kesan',
             ),
             NavigationDestination(
-              icon:
-                  Icon(Icons.settings_rounded, color: AppColors.textMuted),
-              selectedIcon:
-                  Icon(Icons.settings_rounded, color: AppColors.primary),
+              icon: Icon(Icons.settings_rounded, color: AppColors.textMuted),
+              selectedIcon: Icon(
+                Icons.settings_rounded,
+                color: AppColors.primary,
+              ),
               label: 'Settings',
             ),
             NavigationDestination(
               icon: Icon(Icons.logout_rounded, color: AppColors.textMuted),
-              selectedIcon:
-                  Icon(Icons.logout_rounded, color: AppColors.primary),
+              selectedIcon: Icon(
+                Icons.logout_rounded,
+                color: AppColors.primary,
+              ),
               label: 'Logout',
             ),
           ],
@@ -290,8 +310,7 @@ class SettingsScreenWithLogout extends StatelessWidget {
                       builder: (ctx) => AlertDialog(
                         backgroundColor: AppColors.surface,
                         title: const Text('Logout'),
-                        content:
-                            const Text('Are you sure you want to logout?'),
+                        content: const Text('Are you sure you want to logout?'),
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, false),
@@ -299,15 +318,16 @@ class SettingsScreenWithLogout extends StatelessWidget {
                           ),
                           TextButton(
                             onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('Logout',
-                                style:
-                                    TextStyle(color: AppColors.sellRed)),
+                            child: const Text(
+                              'Logout',
+                              style: TextStyle(color: AppColors.sellRed),
+                            ),
                           ),
                         ],
                       ),
                     );
                     if (confirm == true) {
-                      await SessionService.setBiometricEnabled(false);
+                      await SessionService.softLogout();
                       onLogout();
                     }
                   },
@@ -316,7 +336,8 @@ class SettingsScreenWithLogout extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.sellRed,
                     side: BorderSide(
-                        color: AppColors.sellRed.withValues(alpha: 0.5)),
+                      color: AppColors.sellRed.withValues(alpha: 0.5),
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -420,8 +441,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final changeUp = -stock.downFromToday;
     if (changeUp < threshold) return;
 
-    final key =
-        '${stock.ticker}:${changeUp.toStringAsFixed(2)}:$threshold';
+    final key = '${stock.ticker}:${changeUp.toStringAsFixed(2)}:$threshold';
     if (_lastAlertKey == key) return;
     _lastAlertKey = key;
 
@@ -438,12 +458,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AsyncValue<List<StockData>>>(
-      stockDataProvider,
-      (previous, next) {
-        next.whenData(_maybeNotify);
-      },
-    );
+    ref.listen<AsyncValue<List<StockData>>>(stockDataProvider, (
+      previous,
+      next,
+    ) {
+      next.whenData(_maybeNotify);
+    });
     final stocksAsync = ref.watch(stockDataProvider);
 
     return Scaffold(
@@ -518,16 +538,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 decoration: InputDecoration(
                                   isDense: true,
                                   contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 10),
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
                                   hintText: 'Enter ticker (e.g. BBCA)',
-                                  hintStyle:
-                                      TextStyle(color: AppColors.textMuted),
+                                  hintStyle: TextStyle(
+                                    color: AppColors.textMuted,
+                                  ),
                                   prefixIcon: const Icon(
-                                      Icons.search_rounded,
-                                      size: 18,
-                                      color: AppColors.textMuted),
-                                  suffixText:
-                                      _useJakartaSuffix ? '.JK' : null,
+                                    Icons.search_rounded,
+                                    size: 18,
+                                    color: AppColors.textMuted,
+                                  ),
+                                  suffixText: _useJakartaSuffix ? '.JK' : null,
                                   suffixStyle: TextStyle(
                                     fontSize: 11,
                                     color: AppColors.textMuted,
@@ -550,11 +573,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                           color: Colors.white,
                                         ),
                                       )
-                                    : const Text('Fetch',
+                                    : const Text(
+                                        'Fetch',
                                         style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,
-                                        )),
+                                        ),
+                                      ),
                               ),
                             ),
                           ],
@@ -613,11 +638,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       hintText: 'Cari ticker / nama perusahaan',
                       hintStyle: TextStyle(color: AppColors.textMuted),
-                      prefixIcon: const Icon(Icons.search_rounded,
-                          size: 18, color: AppColors.textMuted),
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        size: 18,
+                        color: AppColors.textMuted,
+                      ),
                       filled: true,
                       fillColor: AppColors.card,
                       border: OutlineInputBorder(
@@ -637,10 +667,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   final filtered = query.isEmpty
                       ? stocks
                       : stocks
-                          .where((stock) =>
-                              stock.ticker.toUpperCase().contains(query) ||
-                              stock.name.toUpperCase().contains(query))
-                          .toList();
+                            .where(
+                              (stock) =>
+                                  stock.ticker.toUpperCase().contains(query) ||
+                                  stock.name.toUpperCase().contains(query),
+                            )
+                            .toList();
 
                   if (filtered.isEmpty) {
                     return SliverFillRemaining(
@@ -648,8 +680,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.add_chart_rounded,
-                                size: 56, color: AppColors.textMuted),
+                            Icon(
+                              Icons.add_chart_rounded,
+                              size: 56,
+                              color: AppColors.textMuted,
+                            ),
                             const SizedBox(height: 12),
                             Text(
                               query.isEmpty
@@ -680,31 +715,104 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   return SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                     sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final stock = filtered[index];
-                          return _StockCard(
-                            stock: stock,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      StockDetailScreen(stock: stock),
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final stock = filtered[index];
+                        return _StockCard(
+                          stock: stock,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => StockDetailScreen(stock: stock),
+                              ),
+                            );
+                          },
+                          onDelete: () {
+                            final deletedTicker = stock.ticker;
+                            const undoWindow = Duration(seconds: 5);
+
+                            ref
+                                .read(tickerListProvider.notifier)
+                                .removeTicker(deletedTicker);
+
+                            ScaffoldMessenger.of(context)
+                              ..clearSnackBars()
+                              ..showSnackBar(
+                                SnackBar(
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '$deletedTicker dihapus dari watchlist',
+                                        style: TextStyle(
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Undo berlaku 5 detik',
+                                        style: TextStyle(
+                                          color: AppColors.textMuted,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  backgroundColor: AppColors.surface,
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: undoWindow,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  action: SnackBarAction(
+                                    label: 'Undo',
+                                    textColor: AppColors.primary,
+                                    onPressed: () {
+                                      ref
+                                          .read(tickerListProvider.notifier)
+                                          .addTicker(deletedTicker);
+                                    },
+                                  ),
                                 ),
                               );
-                            },
-                          );
-                        },
-                        childCount: filtered.length,
-                      ),
+
+                            Future.delayed(undoWindow, () {
+                              if (!context.mounted) return;
+                              final isStillRemoved = !ref
+                                  .read(tickerListProvider)
+                                  .contains(deletedTicker);
+                              if (!isStillRemoved) return;
+
+                              ScaffoldMessenger.of(context)
+                                ..clearSnackBars()
+                                ..showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Undo berakhir untuk $deletedTicker',
+                                      style: TextStyle(
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    backgroundColor: AppColors.surface,
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(seconds: 2),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                );
+                            });
+                          },
+                        );
+                      }, childCount: filtered.length),
                     ),
                   );
                 },
                 loading: () => const SliverFillRemaining(
                   child: Center(
-                    child: CircularProgressIndicator(
-                        color: AppColors.primary),
+                    child: CircularProgressIndicator(color: AppColors.primary),
                   ),
                 ),
                 error: (error, _) => SliverFillRemaining(
@@ -714,8 +822,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.wifi_off_rounded,
-                              size: 48, color: AppColors.sellRed),
+                          Icon(
+                            Icons.wifi_off_rounded,
+                            size: 48,
+                            color: AppColors.sellRed,
+                          ),
                           const SizedBox(height: 12),
                           Text(
                             'Connection Error',
@@ -739,8 +850,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             onPressed: () {
                               ref.invalidate(stockDataProvider);
                             },
-                            icon: const Icon(Icons.refresh_rounded,
-                                size: 18),
+                            icon: const Icon(Icons.refresh_rounded, size: 18),
                             label: const Text('Retry'),
                           ),
                         ],
@@ -762,173 +872,235 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 class _StockCard extends StatelessWidget {
   final StockData stock;
   final VoidCallback? onTap;
-  const _StockCard({required this.stock, this.onTap});
+  final VoidCallback? onDelete;
+  const _StockCard({required this.stock, this.onTap, this.onDelete});
 
   @override
   Widget build(BuildContext context) {
     final decision = stock.effectiveDecision;
     final category = stock.effectiveCategory;
 
-    return GlassmorphicCard(
-      margin: const EdgeInsets.only(bottom: 12),
-      onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Dismissible(
+      key: ValueKey(stock.ticker),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onDelete?.call(),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: AppColors.sellRed.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Icon(
+          Icons.delete_rounded,
+          color: AppColors.sellRed,
+          size: 28,
+        ),
+      ),
+      // Stack lets the delete button float at the top-right corner
+      // independently of the badge Column height → always aligned.
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          // Header
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  stock.ticker.isNotEmpty ? stock.ticker[0] : '?',
-                  style: const TextStyle(
-                    color: AppColors.primaryLight,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          GlassmorphicCard(
+            margin: const EdgeInsets.only(bottom: 12),
+            onTap: onTap,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header — no X button here anymore
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      stock.ticker,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
+                    Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        stock.ticker.isNotEmpty ? stock.ticker[0] : '?',
+                        style: const TextStyle(
+                          color: AppColors.primaryLight,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
-                    if (stock.name.isNotEmpty)
-                      Text(
-                        stock.name,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: AppColors.textTertiary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            stock.ticker,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          if (stock.name.isNotEmpty)
+                            Text(
+                              stock.name,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.textTertiary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
                       ),
+                    ),
+                    // Leave space on the right so badge doesn't collide
+                    // with the floating X button (20 = button width)
+                    if (onDelete != null) const SizedBox(width: 28),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ScoreBadge.decision(decision),
+                        const SizedBox(height: 4),
+                        Text(
+                          category,
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: AppColors.textTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  ScoreBadge.decision(decision),
+                const SizedBox(height: 12),
+
+                // Price + Quality
+                Row(
+                  children: [
+                    Text(
+                      Formatters.price(stock.price),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const Spacer(),
+                    ScoreBadge.quality(stock.qualityLabel),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Hybrid Score bar
+                if (stock.displayHybridScore > 0) ...[
+                  Row(
+                    children: [
+                      Text(
+                        'Hybrid Score',
+                        style: TextStyle(fontSize: 10, color: AppColors.textMuted),
+                      ),
+                      const Spacer(),
+                      Text(
+                        Formatters.score(stock.displayHybridScore),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.scoreColor(stock.displayHybridScore),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 4),
-                  Text(
-                    category,
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: AppColors.textTertiary,
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: stock.displayHybridScore.clamp(0.0, 1.0),
+                      minHeight: 4,
+                      backgroundColor: AppColors.surfaceLight,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.scoreColor(stock.displayHybridScore),
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 10),
                 ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
 
-          // Price + Quality
-          Row(
-            children: [
-              Text(
-                Formatters.price(stock.price),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                  letterSpacing: -0.5,
+                // Metric chips
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _MiniMetric('MOS', Formatters.percent(stock.mos)),
+                    _MiniMetric('ROE', Formatters.percent(stock.roe)),
+                    _MiniMetric('PER', Formatters.ratio(stock.perNow)),
+                    _MiniMetric('PBV', Formatters.ratio(stock.pbv)),
+                    _MiniMetric(
+                      'Div',
+                      Formatters.percent(stock.dividendYieldPercent),
+                    ),
+                    _MiniMetric('Disc', Formatters.score(stock.discountScore)),
+                  ],
                 ),
-              ),
-              const Spacer(),
-              ScoreBadge.quality(stock.qualityLabel),
-            ],
-          ),
-          const SizedBox(height: 10),
 
-          // Hybrid Score bar
-          if (stock.displayHybridScore > 0) ...[
-            Row(
-              children: [
-                Text('Hybrid Score',
-                    style: TextStyle(
-                        fontSize: 10, color: AppColors.textMuted)),
-                const Spacer(),
-                Text(
-                  Formatters.score(stock.displayHybridScore),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.scoreColor(
-                        stock.displayHybridScore),
-                  ),
-                ),
+                // Verdicts
+                if (stock.qualityVerdict != null ||
+                    stock.discountTimingVerdict != null) ...[
+                  const SizedBox(height: 10),
+                  if (stock.discountTimingVerdict != null)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.timer_rounded,
+                          size: 12,
+                          color: AppColors.accent,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            stock.discountTimingVerdict!,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppColors.accentLight,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
               ],
             ),
-            const SizedBox(height: 4),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: stock.displayHybridScore.clamp(0.0, 1.0),
-                minHeight: 4,
-                backgroundColor: AppColors.surfaceLight,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                    AppColors.scoreColor(stock.displayHybridScore)),
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
-
-          // Metric chips
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _MiniMetric('MOS', Formatters.percent(stock.mos)),
-              _MiniMetric('ROE', Formatters.percent(stock.roe)),
-              _MiniMetric('PER', Formatters.ratio(stock.perNow)),
-              _MiniMetric('PBV', Formatters.ratio(stock.pbv)),
-              _MiniMetric(
-                  'Div', Formatters.percent(stock.dividendYieldPercent)),
-              _MiniMetric('Disc', Formatters.score(stock.discountScore)),
-            ],
           ),
 
-          // Verdicts
-          if (stock.qualityVerdict != null ||
-              stock.discountTimingVerdict != null) ...[
-            const SizedBox(height: 10),
-            if (stock.discountTimingVerdict != null)
-              Row(
-                children: [
-                  Icon(Icons.timer_rounded,
-                      size: 12, color: AppColors.accent),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      stock.discountTimingVerdict!,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppColors.accentLight,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+          // ── Floating delete button — always at the same top-right spot ──
+          if (onDelete != null)
+            Positioned(
+              top: 175,
+              right: 10,
+              child: GestureDetector(
+                onTap: onDelete,
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.sellRed.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                ],
+                  child: const Icon(
+                    Icons.close_rounded,
+                    size: 13,
+                    color: AppColors.sellRed,
+                  ),
+                ),
               ),
-          ],
+            ),
         ],
       ),
     );

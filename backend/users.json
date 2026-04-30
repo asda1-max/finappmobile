@@ -12,5 +12,33 @@
     "email": "a@gmail.com",
     "password_hash": "$2b$12$/5MeqtScVC/80xKsG4UO7.Z4rdzztZwVwc1M8Sra20qbqgD1qr0hK",
     "created_at": "2026-04-29T14:20:21.283733+00:00"
+  },
+  "flacko": {
+    "id": "2178bdf9-4f2b-4035-9e65-e0e7ddc7e6d0",
+    "username": "flacko",
+    "email": "elyuzarf@gmail.com",
+    "password_hash": "$2b$12$tXDQegv..SdYuIansrtpCeHDvDRSSYsEzkYjO93cGqgW8ZLPO4VNq",
+    "created_at": "2026-04-29T16:14:22.105146+00:00"
+  },
+  "elyu": {
+    "id": "0ef12a28-d3d8-46aa-88c5-b247c3c5e42e",
+    "username": "elyu",
+    "email": "chocobanvar@gmail.com",
+    "password_hash": "$2b$12$r6vo6zIMxdILcl.1/MOuDuerwrJbhD47Z9Z/2JojBcj3RnTy06O1O",
+    "created_at": "2026-04-29T16:50:52.149081+00:00"
+  },
+  "joe": {
+    "id": "8f627445-11e6-44b6-a9a0-2ebf7639cd0f",
+    "username": "joe",
+    "email": "joemama@gmail.com",
+    "password_hash": "$2b$12$SxOYWzFLbYyf3ubp/92OIuunw4EBiPrX15C1n65iMGI0/yDJDi29G",
+    "created_at": "2026-04-29T17:06:24.022312+00:00"
+  },
+  "mama": {
+    "id": "dd5abd06-109c-49d1-9c9a-3c514ef15f3b",
+    "username": "mama",
+    "email": "mama@gmail.com",
+    "password_hash": "$2b$12$CeAhDJ1LA9ErNDhg3JI2nOtqFXCdEnVocMTkJUC5kVKxGcdzcodSe",
+    "created_at": "2026-04-29T17:18:52.130215+00:00"
   }
 }
