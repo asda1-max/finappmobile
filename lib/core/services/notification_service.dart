@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
@@ -67,6 +69,11 @@ class NotificationService {
       priority: Priority.high,
       playSound: true,
       enableVibration: true,
+      color: Color(0xFFD4A843), // Retro gold
+      ledColor: Color(0xFFD4A843),
+      ledOnMs: 1000,
+      ledOffMs: 500,
+      icon: '@mipmap/ic_launcher',
     );
     return const NotificationDetails(android: androidDetails);
   }

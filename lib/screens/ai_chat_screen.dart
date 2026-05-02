@@ -54,7 +54,7 @@ class _AiChatScreenState extends State<AiChatScreen>
   void _addWelcomeMessage() {
     _messages.add(_ChatMessage(
       text:
-          'Halo! 👋 Selamat datang di Market Desk, asisten analisis saham Anda.\n\n'
+          'Halo! 👋 Selamat datang di Ticki TackAI, asisten analisis saham Anda.\n\n'
           'Saya bisa membantu:\n'
           '• 📊 Analisis fundamental saham di watchlist\n'
           '• 🔍 Menjelaskan keputusan BUY/NO BUY\n'
@@ -245,7 +245,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                   shaderCallback: (bounds) =>
                       AppColors.primaryGradient.createShader(bounds),
                   child: const Text(
-                    'Market Desk',
+                    'Ticki TackAI',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,

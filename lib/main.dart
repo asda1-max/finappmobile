@@ -549,11 +549,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          '${stock.ticker} naik ${changeUp.toStringAsFixed(2)}% (>= $threshold%)',
+        content: Row(
+          children: [
+            const Icon(Icons.terminal_rounded, color: AppColors.background, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '> ALERT: ${stock.ticker} UP ${changeUp.toStringAsFixed(2)}%',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.background,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+          ],
         ),
-        backgroundColor: AppColors.buyGreen,
-        duration: const Duration(seconds: 3),
+        backgroundColor: AppColors.primary,
+        duration: const Duration(seconds: 4),
       ),
     );
   }
