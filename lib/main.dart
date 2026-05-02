@@ -309,12 +309,12 @@ class _AppShellState extends ConsumerState<AppShell> {
               label: 'Dashboard',
             ),
             NavigationDestination(
-              icon: Icon(Icons.auto_awesome, color: AppColors.textMuted),
+              icon: Icon(Icons.chat_bubble_outline_rounded, color: AppColors.textMuted),
               selectedIcon: Icon(
-                Icons.auto_awesome,
+                Icons.chat_bubble_outline_rounded,
                 color: AppColors.primary,
               ),
-              label: 'Tick AI',
+              label: 'Market Desk',
             ),
             NavigationDestination(
               icon: Icon(Icons.leaderboard_rounded, color: AppColors.textMuted),
@@ -549,11 +549,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          '${stock.ticker} naik ${changeUp.toStringAsFixed(2)}% (>= $threshold%)',
+        content: Row(
+          children: [
+            const Icon(Icons.terminal_rounded, color: AppColors.background, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '> ALERT: ${stock.ticker} UP ${changeUp.toStringAsFixed(2)}%',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.background,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+          ],
         ),
-        backgroundColor: AppColors.buyGreen,
-        duration: const Duration(seconds: 3),
+        backgroundColor: AppColors.primary,
+        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -599,7 +612,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Decision Making Support System',
+                              'Stock Decision Support',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textTertiary,
@@ -838,81 +851,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           },
                           onDelete: () {
                             final deletedTicker = stock.ticker;
-                            const undoWindow = Duration(seconds: 5);
 
                             ref
                                 .read(tickerListProvider.notifier)
                                 .removeTicker(deletedTicker);
-
-                            ScaffoldMessenger.of(context)
-                              ..clearSnackBars()
-                              ..showSnackBar(
-                                SnackBar(
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '$deletedTicker dihapus dari watchlist',
-                                        style: TextStyle(
-                                          color: AppColors.textPrimary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Undo berlaku 5 detik',
-                                        style: TextStyle(
-                                          color: AppColors.textMuted,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  backgroundColor: AppColors.surface,
-                                  behavior: SnackBarBehavior.floating,
-                                  duration: undoWindow,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  action: SnackBarAction(
-                                    label: 'Undo',
-                                    textColor: AppColors.primary,
-                                    onPressed: () {
-                                      ref
-                                          .read(tickerListProvider.notifier)
-                                          .addTicker(deletedTicker);
-                                    },
-                                  ),
-                                ),
-                              );
-
-                            Future.delayed(undoWindow, () {
-                              if (!context.mounted) return;
-                              final isStillRemoved = !ref
-                                  .read(tickerListProvider)
-                                  .contains(deletedTicker);
-                              if (!isStillRemoved) return;
-
-                              ScaffoldMessenger.of(context)
-                                ..clearSnackBars()
-                                ..showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Undo berakhir untuk $deletedTicker',
-                                      style: TextStyle(
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                    backgroundColor: AppColors.surface,
-                                    behavior: SnackBarBehavior.floating,
-                                    duration: const Duration(seconds: 2),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                );
-                            });
                           },
                         );
                       }, childCount: filtered.length),

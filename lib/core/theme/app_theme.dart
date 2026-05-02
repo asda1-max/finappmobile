@@ -19,7 +19,7 @@ class AppTheme {
 
     return base.copyWith(
       scaffoldBackgroundColor: AppColors.background,
-      textTheme: GoogleFonts.spaceGroteskTextTheme(base.textTheme),
+      textTheme: GoogleFonts.ibmPlexMonoTextTheme(base.textTheme),
       appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.textPrimary,
@@ -91,7 +91,16 @@ class AppTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        backgroundColor: AppColors.surfaceLight,
+        contentTextStyle: const TextStyle(
+          color: AppColors.primary,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 1.2,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(4),
+          side: const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
       ),
     );
   }
