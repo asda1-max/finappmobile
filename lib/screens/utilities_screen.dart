@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import '../core/theme/app_colors.dart';
@@ -14,12 +16,17 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
   final TextEditingController _amountController =
       TextEditingController(text: '100000');
 
-  final Map<String, double> _rates = const {
-    'IDR': 16000.0,
+  Map<String, double> _rates = {
+    'IDR': 17334.0,
     'USD': 1.0,
     'EUR': 0.93,
     'JPY': 150.0,
+    'GBP': 0.79,
+    'SGD': 1.34,
+    'AUD': 1.53,
   };
+  bool _isLoadingRates = false;
+  String _lastUpdate = '';
 
   String _fromCurrency = 'IDR';
   String _toCurrency = 'USD';
@@ -34,18 +41,64 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
 
   String _baseZone = 'WIB (UTC+7)';
   TimeOfDay _baseTime = TimeOfDay.now();
-
+  Timer? _timer;
+  bool _isManualTime = false;
 
   @override
   void initState() {
     super.initState();
-    _recalculate();
+    _fetchRates();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!_isManualTime) {
+        final now = TimeOfDay.now();
+        if (now.hour != _baseTime.hour || now.minute != _baseTime.minute) {
+          setState(() => _baseTime = now);
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _amountController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchRates() async {
+    if (!mounted) return;
+    setState(() => _isLoadingRates = true);
+    try {
+      final response = await Dio().get('https://open.er-api.com/v6/latest/USD');
+      final data = response.data['rates'] as Map<String, dynamic>;
+      
+      if (mounted) {
+        setState(() {
+          _rates = {
+            'IDR': (data['IDR'] as num?)?.toDouble() ?? 17334.0,
+            'USD': 1.0,
+            'EUR': (data['EUR'] as num?)?.toDouble() ?? 0.93,
+            'JPY': (data['JPY'] as num?)?.toDouble() ?? 150.0,
+            'GBP': (data['GBP'] as num?)?.toDouble() ?? 0.79,
+            'SGD': (data['SGD'] as num?)?.toDouble() ?? 1.34,
+            'AUD': (data['AUD'] as num?)?.toDouble() ?? 1.53,
+          };
+          
+          final updateUnix = response.data['time_last_update_unix'] as int?;
+          if (updateUnix != null) {
+            final date = DateTime.fromMillisecondsSinceEpoch(updateUnix * 1000);
+            _lastUpdate = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+          }
+        });
+      }
+    } catch (_) {
+      // Fallback to static defaults
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingRates = false);
+        _recalculate();
+      }
+    }
   }
 
   void _recalculate() {
@@ -80,7 +133,10 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
       },
     );
     if (selected != null) {
-      setState(() => _baseTime = selected);
+      setState(() {
+        _baseTime = selected;
+        _isManualTime = true;
+      });
     }
   }
 
@@ -142,17 +198,36 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '💱 Konversi Mata Uang',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '💱 Konversi Mata Uang',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      if (_isLoadingRates)
+                        const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                        )
+                      else if (_lastUpdate.isNotEmpty)
+                        Text(
+                          'Update: $_lastUpdate',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Simulasi FX untuk keputusan portofolio internasional.',
+                    'Simulasi FX dengan nilai tukar real-time.',
                     style: TextStyle(fontSize: 11, color: AppColors.textTertiary),
                   ),
                   const SizedBox(height: 12),
