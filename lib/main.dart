@@ -851,81 +851,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           },
                           onDelete: () {
                             final deletedTicker = stock.ticker;
-                            const undoWindow = Duration(seconds: 5);
 
                             ref
                                 .read(tickerListProvider.notifier)
                                 .removeTicker(deletedTicker);
-
-                            ScaffoldMessenger.of(context)
-                              ..clearSnackBars()
-                              ..showSnackBar(
-                                SnackBar(
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '$deletedTicker dihapus dari watchlist',
-                                        style: TextStyle(
-                                          color: AppColors.textPrimary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Undo berlaku 5 detik',
-                                        style: TextStyle(
-                                          color: AppColors.textMuted,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  backgroundColor: AppColors.surface,
-                                  behavior: SnackBarBehavior.floating,
-                                  duration: undoWindow,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  action: SnackBarAction(
-                                    label: 'Undo',
-                                    textColor: AppColors.primary,
-                                    onPressed: () {
-                                      ref
-                                          .read(tickerListProvider.notifier)
-                                          .addTicker(deletedTicker);
-                                    },
-                                  ),
-                                ),
-                              );
-
-                            Future.delayed(undoWindow, () {
-                              if (!context.mounted) return;
-                              final isStillRemoved = !ref
-                                  .read(tickerListProvider)
-                                  .contains(deletedTicker);
-                              if (!isStillRemoved) return;
-
-                              ScaffoldMessenger.of(context)
-                                ..clearSnackBars()
-                                ..showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Undo berakhir untuk $deletedTicker',
-                                      style: TextStyle(
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                    backgroundColor: AppColors.surface,
-                                    behavior: SnackBarBehavior.floating,
-                                    duration: const Duration(seconds: 2),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                );
-                            });
                           },
                         );
                       }, childCount: filtered.length),
