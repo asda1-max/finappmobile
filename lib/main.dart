@@ -7,6 +7,7 @@ import 'core/utils/formatters.dart';
 import 'core/api_client.dart';
 import 'core/services/session_service.dart';
 import 'core/services/local_db_service.dart';
+import 'core/services/notification_service.dart';
 import 'models/stock_data.dart';
 import 'data/stock_repository.dart';
 import 'widgets/glassmorphic_card.dart';
@@ -20,6 +21,8 @@ import 'screens/profile_screen.dart';
 import 'screens/feedback_screen.dart';
 import 'screens/logout_screen.dart';
 import 'screens/ai_chat_screen.dart';
+import 'screens/nearby_screen.dart';
+import 'screens/slot_machine_screen.dart';
 
 // ── Providers ──
 
@@ -66,8 +69,9 @@ String normalizeSymbol(String input, bool useJakartaSuffix) {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Hive local database
+  // Initialize local SQLite database
   await LocalDbService.init();
+  await NotificationService.init();
 
   // Load saved API base URL if any
   final savedBaseUrl = LocalDbService.getPreference<String>('api_base_url');
@@ -174,6 +178,82 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   int _currentIndex = 0;
+  int _navIndex = 0;
+
+  Future<void> _openMoreMenu() async {
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.cardBorder,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _MoreActionTile(
+                icon: Icons.person_rounded,
+                label: 'Profil',
+                index: 4,
+                onTap: () => Navigator.pop(ctx, 4),
+              ),
+              _MoreActionTile(
+                icon: Icons.feedback_rounded,
+                label: 'Saran & Kesan',
+                index: 5,
+                onTap: () => Navigator.pop(ctx, 5),
+              ),
+              _MoreActionTile(
+                icon: Icons.settings_rounded,
+                label: 'Settings',
+                index: 6,
+                onTap: () => Navigator.pop(ctx, 6),
+              ),
+              _MoreActionTile(
+                icon: Icons.map_rounded,
+                label: 'Lokasi Terdekat',
+                index: 8,
+                onTap: () => Navigator.pop(ctx, 8),
+              ),
+              _MoreActionTile(
+                icon: Icons.casino_rounded,
+                label: 'Slot Machine',
+                index: 9,
+                accent: const Color(0xFFFFD700),
+                onTap: () => Navigator.pop(ctx, 9),
+              ),
+              _MoreActionTile(
+                icon: Icons.logout_rounded,
+                label: 'Logout',
+                index: 7,
+                accent: AppColors.sellRed,
+                onTap: () => Navigator.pop(ctx, 7),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (selected != null) {
+      setState(() {
+        _currentIndex = selected;
+        _navIndex = 4;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -189,6 +269,8 @@ class _AppShellState extends ConsumerState<AppShell> {
       const FeedbackScreen(),
       const SettingsScreen(),
       LogoutScreen(onLogout: widget.onLogout),
+      const NearbyScreen(),
+      const SlotMachineScreen(),
     ];
 
     return Scaffold(
@@ -204,8 +286,17 @@ class _AppShellState extends ConsumerState<AppShell> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           height: 64,
-          selectedIndex: _currentIndex,
-          onDestinationSelected: (i) => setState(() => _currentIndex = i),
+          selectedIndex: _navIndex,
+          onDestinationSelected: (i) {
+            if (i == 4) {
+              _openMoreMenu();
+              return;
+            }
+            setState(() {
+              _currentIndex = i;
+              _navIndex = i;
+            });
+          },
           indicatorColor: AppColors.primary.withValues(alpha: 0.15),
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           destinations: const [
@@ -245,40 +336,45 @@ class _AppShellState extends ConsumerState<AppShell> {
               label: 'Utilities',
             ),
             NavigationDestination(
-              icon: Icon(Icons.person_rounded, color: AppColors.textMuted),
+              icon: Icon(Icons.more_horiz_rounded, color: AppColors.textMuted),
               selectedIcon: Icon(
-                Icons.person_rounded,
+                Icons.more_horiz_rounded,
                 color: AppColors.primary,
               ),
-              label: 'Profil',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.feedback_rounded, color: AppColors.textMuted),
-              selectedIcon: Icon(
-                Icons.feedback_rounded,
-                color: AppColors.primary,
-              ),
-              label: 'Saran & Kesan',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.settings_rounded, color: AppColors.textMuted),
-              selectedIcon: Icon(
-                Icons.settings_rounded,
-                color: AppColors.primary,
-              ),
-              label: 'Settings',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.logout_rounded, color: AppColors.textMuted),
-              selectedIcon: Icon(
-                Icons.logout_rounded,
-                color: AppColors.primary,
-              ),
-              label: 'Logout',
+              label: 'More',
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MoreActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int index;
+  final Color? accent;
+  final VoidCallback onTap;
+
+  const _MoreActionTile({
+    required this.icon,
+    required this.label,
+    required this.index,
+    required this.onTap,
+    this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = accent ?? AppColors.textPrimary;
+    return ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(
+        label,
+        style: TextStyle(color: color, fontWeight: FontWeight.w600),
+      ),
+      onTap: onTap,
     );
   }
 }
@@ -445,6 +541,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (_lastAlertKey == key) return;
     _lastAlertKey = key;
 
+    NotificationService.showPriceAlert(
+      ticker: stock.ticker,
+      changeUp: changeUp,
+      threshold: threshold,
+    );
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -469,41 +571,48 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: RefreshIndicator(
-          color: AppColors.primary,
-          backgroundColor: AppColors.surface,
-          onRefresh: () async {
-            ref.invalidate(stockDataProvider);
-          },
-          child: CustomScrollView(
-            slivers: [
+        child: CustomScrollView(
+          slivers: [
               // Header
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                  child: Column(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ShaderMask(
-                        shaderCallback: (bounds) =>
-                            AppColors.primaryGradient.createShader(bounds),
-                        child: const Text(
-                          'Tick Watchers',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            letterSpacing: -0.5,
-                          ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ShaderMask(
+                              shaderCallback: (bounds) =>
+                                  AppColors.primaryGradient.createShader(bounds),
+                              child: const Text(
+                                'Tick Watchers',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Decision Making Support System',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textTertiary,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Decision Making Support System',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textTertiary,
-                        ),
+                      IconButton(
+                        tooltip: 'Refresh data',
+                        onPressed: () => ref.invalidate(stockDataProvider),
+                        icon: const Icon(Icons.refresh_rounded,
+                            color: AppColors.textSecondary),
                       ),
                     ],
                   ),
@@ -859,8 +968,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );

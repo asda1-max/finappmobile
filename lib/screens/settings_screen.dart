@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
 import '../core/services/local_db_service.dart';
+import '../core/services/notification_service.dart';
 import '../data/stock_repository.dart';
 import '../widgets/glassmorphic_card.dart';
 
@@ -178,7 +180,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return const Scaffold(
         backgroundColor: AppColors.background,
         body: Center(
-            child: CircularProgressIndicator(color: AppColors.primary)),
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
       );
     }
 
@@ -193,7 +196,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
           children: [
-            // Header
             Row(
               children: [
                 const Text('⚙️', style: TextStyle(fontSize: 22)),
@@ -338,57 +340,59 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await NotificationService.showTestNotification();
+                        setState(() => _statusMsg = 'Test notifikasi terkirim');
+                      },
+                      icon: const Icon(Icons.notifications_rounded, size: 16),
+                      label: const Text('Test Notifikasi Android'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: BorderSide(
+                          color: AppColors.primary.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
-            // Two columns
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _WeightColumn(
-                    title: 'Mode: use_cagr',
-                    weights: _useCagrWeights,
-                    rec: _useCagrRec,
-                    buy: _useCagrBuy,
-                    risk: _useCagrRisk,
-                    onWeightChanged: (i, v) =>
-                        setState(() => _useCagrWeights[i] = v),
-                    onRecChanged: (v) =>
-                        setState(() => _useCagrRec = v),
-                    onBuyChanged: (v) =>
-                        setState(() => _useCagrBuy = v),
-                    onRiskChanged: (v) =>
-                        setState(() => _useCagrRisk = v),
-                    totalWeight: _totalWeight(_useCagrWeights),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _WeightColumn(
-                    title: 'Mode: no_cagr',
-                    weights: _noCagrWeights,
-                    rec: _noCagrRec,
-                    buy: _noCagrBuy,
-                    risk: _noCagrRisk,
-                    onWeightChanged: (i, v) =>
-                        setState(() => _noCagrWeights[i] = v),
-                    onRecChanged: (v) =>
-                        setState(() => _noCagrRec = v),
-                    onBuyChanged: (v) =>
-                        setState(() => _noCagrBuy = v),
-                    onRiskChanged: (v) =>
-                        setState(() => _noCagrRisk = v),
-                    totalWeight: _totalWeight(_noCagrWeights),
-                  ),
-                ),
-              ],
+            _WeightColumn(
+              title: 'Mode: use_cagr',
+              weights: _useCagrWeights,
+              rec: _useCagrRec,
+              buy: _useCagrBuy,
+              risk: _useCagrRisk,
+              onWeightChanged: (i, v) =>
+                  setState(() => _useCagrWeights[i] = v),
+              onRecChanged: (v) => setState(() => _useCagrRec = v),
+              onBuyChanged: (v) => setState(() => _useCagrBuy = v),
+              onRiskChanged: (v) => setState(() => _useCagrRisk = v),
+              totalWeight: _totalWeight(_useCagrWeights),
+            ),
+            const SizedBox(height: 12),
+            _WeightColumn(
+              title: 'Mode: no_cagr',
+              weights: _noCagrWeights,
+              rec: _noCagrRec,
+              buy: _noCagrBuy,
+              risk: _noCagrRisk,
+              onWeightChanged: (i, v) =>
+                  setState(() => _noCagrWeights[i] = v),
+              onRecChanged: (v) => setState(() => _noCagrRec = v),
+              onBuyChanged: (v) => setState(() => _noCagrBuy = v),
+              onRiskChanged: (v) => setState(() => _noCagrRisk = v),
+              totalWeight: _totalWeight(_noCagrWeights),
             ),
             const SizedBox(height: 16),
 
-            // Quick Presets
             Text(
               'Quick Presets:',
               style: TextStyle(
@@ -421,8 +425,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Actions
-            Row(
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 OutlinedButton.icon(
                   onPressed: _resetToDefaults,
@@ -433,7 +439,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     side: BorderSide(color: AppColors.cardBorder),
                   ),
                 ),
-                const SizedBox(width: 12),
                 ElevatedButton.icon(
                   onPressed: _saveConfig,
                   icon: const Icon(Icons.save, size: 16),
@@ -442,8 +447,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     backgroundColor: AppColors.primary,
                   ),
                 ),
-                if (_statusMsg != null) ...[
-                  const SizedBox(width: 12),
+                if (_statusMsg != null)
                   Text(
                     _statusMsg!,
                     style: TextStyle(
@@ -451,7 +455,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       color: AppColors.buyGreen,
                     ),
                   ),
-                ],
               ],
             ),
           ],
@@ -579,36 +582,11 @@ class _WeightRow extends StatelessWidget {
               style: TextStyle(fontSize: 10, color: AppColors.textTertiary),
             ),
           ),
-          SizedBox(
-            width: 56,
-            height: 28,
-            child: TextField(
-              controller: TextEditingController(text: value.toStringAsFixed(2)),
-              style: const TextStyle(
-                  fontSize: 11, color: AppColors.textPrimary),
-              textAlign: TextAlign.center,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                filled: true,
-                fillColor: AppColors.surfaceLight,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(color: AppColors.cardBorder),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide(color: AppColors.cardBorder),
-                ),
-              ),
-              onChanged: (v) {
-                final parsed = double.tryParse(v);
-                if (parsed != null) onChanged(parsed);
-              },
-            ),
+          _NumberField(
+            value: value,
+            decimals: 2,
+            step: 0.01,
+            onChanged: onChanged,
           ),
         ],
       ),
@@ -634,38 +612,171 @@ class _ThresholdField extends StatelessWidget {
         Text(label,
             style: TextStyle(fontSize: 9, color: AppColors.textMuted)),
         const SizedBox(height: 2),
-        SizedBox(
-          height: 28,
-          child: TextField(
-            controller:
-                TextEditingController(text: value.toStringAsFixed(3)),
-            style: const TextStyle(
-                fontSize: 11, color: AppColors.textPrimary),
-            textAlign: TextAlign.center,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-              filled: true,
-              fillColor: AppColors.surfaceLight,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: AppColors.cardBorder),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: AppColors.cardBorder),
-              ),
-            ),
-            onChanged: (v) {
-              final parsed = double.tryParse(v);
-              if (parsed != null) onChanged(parsed);
-            },
-          ),
+        _NumberField(
+          value: value,
+          decimals: 3,
+          step: 0.01,
+          onChanged: onChanged,
         ),
       ],
+    );
+  }
+}
+
+class _NumberField extends StatefulWidget {
+  final double value;
+  final int decimals;
+  final double step;
+  final ValueChanged<double> onChanged;
+
+  const _NumberField({
+    required this.value,
+    required this.decimals,
+    required this.step,
+    required this.onChanged,
+  });
+
+  @override
+  State<_NumberField> createState() => _NumberFieldState();
+}
+
+class _NumberFieldState extends State<_NumberField> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: widget.value.toStringAsFixed(widget.decimals),
+    );
+    _focusNode = FocusNode();
+    _focusNode.addListener(_handleFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(covariant _NumberField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_focusNode.hasFocus) return;
+    if (oldWidget.value != widget.value) {
+      _controller.text = widget.value.toStringAsFixed(widget.decimals);
+    }
+  }
+
+  void _handleFocusChange() {
+    if (!_focusNode.hasFocus) {
+      _commitValue();
+    }
+  }
+
+  void _commitValue() {
+    final parsed = double.tryParse(_controller.text);
+    if (parsed == null) {
+      _controller.text = widget.value.toStringAsFixed(widget.decimals);
+      return;
+    }
+    final next = parsed;
+    _controller.text = next.toStringAsFixed(widget.decimals);
+    widget.onChanged(next);
+  }
+
+  void _stepValue(double delta) {
+    final parsed = double.tryParse(_controller.text) ?? widget.value;
+    final next = parsed + delta;
+    _controller.text = next.toStringAsFixed(widget.decimals);
+    widget.onChanged(next);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_handleFocusChange);
+    _focusNode.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 32,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 56,
+            height: 32,
+            child: TextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              style: const TextStyle(
+                  fontSize: 11, color: AppColors.textPrimary),
+              textAlign: TextAlign.center,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,6}')),
+              ],
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                filled: true,
+                fillColor: AppColors.surfaceLight,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(color: AppColors.cardBorder),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide(color: AppColors.cardBorder),
+                ),
+              ),
+              onChanged: (v) {
+                final parsed = double.tryParse(v);
+                if (parsed != null) widget.onChanged(parsed);
+              },
+              onEditingComplete: _commitValue,
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 16,
+            height: 32,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _StepButton(
+                  icon: Icons.keyboard_arrow_up_rounded,
+                  onTap: () => _stepValue(widget.step),
+                ),
+                _StepButton(
+                  icon: Icons.keyboard_arrow_down_rounded,
+                  onTap: () => _stepValue(-widget.step),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _StepButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 14,
+      width: 16,
+      child: InkWell(
+        onTap: onTap,
+        child: Icon(icon, size: 12, color: AppColors.textSecondary),
+      ),
     );
   }
 }

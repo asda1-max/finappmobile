@@ -3,6 +3,7 @@ from pathlib import Path
 import json
 import math
 from datetime import datetime, timezone, date, timedelta
+import sqlite3
 
 # Load .env before anything else
 from dotenv import load_dotenv
@@ -125,6 +126,167 @@ USERS_JSON_PATH = (
     (_data_dir / "users.json") if _data_dir_env else Path(__file__).with_name("users.json")
 )
 
+DB_PATH = (
+    (_data_dir / "finapp.db") if _data_dir_env else Path(__file__).with_name("finapp.db")
+)
+
+
+def _db_connect() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _init_db() -> None:
+    with _db_connect() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT,
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS saved_tickers (
+                ticker TEXT PRIMARY KEY
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS meta (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+            """
+        )
+
+    _migrate_from_json()
+
+
+def _table_is_empty(table: str) -> bool:
+    with _db_connect() as conn:
+        cur = conn.execute(f"SELECT COUNT(1) AS cnt FROM {table}")
+        row = cur.fetchone()
+        return (row["cnt"] if row else 0) == 0
+
+
+def _migrate_from_json() -> None:
+    try:
+        users_empty = _table_is_empty("users")
+        tickers_empty = _table_is_empty("saved_tickers")
+    except sqlite3.Error:
+        return
+
+    if users_empty and USERS_JSON_PATH.exists():
+        try:
+            raw = json.loads(USERS_JSON_PATH.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                with _db_connect() as conn:
+                    for username, user in raw.items():
+                        if not isinstance(user, dict):
+                            continue
+                        conn.execute(
+                            """
+                            INSERT OR IGNORE INTO users (id, username, email, password_hash, created_at)
+                            VALUES (?, ?, ?, ?, ?)
+                            """,
+                            (
+                                user.get("id"),
+                                (user.get("username") or username or "").strip().lower(),
+                                user.get("email"),
+                                user.get("password_hash"),
+                                user.get("created_at") or datetime.now(timezone.utc).isoformat(),
+                            ),
+                        )
+        except Exception:
+            pass
+
+    if tickers_empty and DATA_JSON_PATH.exists():
+        try:
+            raw = json.loads(DATA_JSON_PATH.read_text(encoding="utf-8"))
+            tickers = raw.get("tickers") if isinstance(raw, dict) else []
+            if isinstance(tickers, list):
+                clean = [str(t).strip() for t in tickers if str(t).strip()]
+                with _db_connect() as conn:
+                    for t in clean:
+                        conn.execute(
+                            "INSERT OR IGNORE INTO saved_tickers (ticker) VALUES (?)",
+                            (t,),
+                        )
+        except Exception:
+            pass
+
+
+def _get_user_by_username(username: str) -> Optional[dict]:
+    with _db_connect() as conn:
+        cur = conn.execute(
+            "SELECT * FROM users WHERE username = ?",
+            (username.strip().lower(),),
+        )
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+
+def _insert_user(user: dict) -> None:
+    with _db_connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO users (id, username, email, password_hash, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                user.get("id"),
+                user.get("username"),
+                user.get("email"),
+                user.get("password_hash"),
+                user.get("created_at"),
+            ),
+        )
+
+
+def _list_saved_tickers() -> List[str]:
+    with _db_connect() as conn:
+        cur = conn.execute("SELECT ticker FROM saved_tickers ORDER BY ticker ASC")
+        rows = cur.fetchall()
+        return [row["ticker"] for row in rows]
+
+
+def _add_saved_ticker(ticker: str) -> None:
+    with _db_connect() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO saved_tickers (ticker) VALUES (?)",
+            (ticker,),
+        )
+
+
+def _delete_saved_ticker(ticker: str) -> bool:
+    with _db_connect() as conn:
+        cur = conn.execute(
+            "DELETE FROM saved_tickers WHERE ticker = ?",
+            (ticker,),
+        )
+        return cur.rowcount > 0
+
+
+def _replace_saved_tickers(tickers: List[str]) -> None:
+    clean = [str(t).strip() for t in tickers if str(t).strip()]
+    with _db_connect() as conn:
+        conn.execute("DELETE FROM saved_tickers")
+        for t in clean:
+            conn.execute(
+                "INSERT OR IGNORE INTO saved_tickers (ticker) VALUES (?)",
+                (t,),
+            )
+
+
+_init_db()
+
 
 class RegisterPayload(BaseModel):
     username: str
@@ -135,19 +297,6 @@ class RegisterPayload(BaseModel):
 class LoginPayload(BaseModel):
     username: str
     password: str
-
-
-def _load_users() -> dict:
-    if not USERS_JSON_PATH.exists():
-        return {}
-    try:
-        return json.loads(USERS_JSON_PATH.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {}
-
-
-def _save_users(users: dict) -> None:
-    USERS_JSON_PATH.write_text(json.dumps(users, indent=2), encoding="utf-8")
 
 
 def _create_jwt(user_id: str, username: str) -> str:
@@ -178,21 +327,21 @@ async def register_user(payload: RegisterPayload):
     if len(payload.password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
-    users = _load_users()
-    if username in users:
+    existing = _get_user_by_username(username)
+    if existing:
         raise HTTPException(status_code=409, detail="Username already exists")
 
     hashed = bcrypt.hashpw(payload.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     user_id = str(uuid.uuid4())
 
-    users[username] = {
+    user = {
         "id": user_id,
         "username": username,
         "email": payload.email.strip(),
         "password_hash": hashed,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    _save_users(users)
+    _insert_user(user)
 
     token = _create_jwt(user_id, username)
     return {"token": token, "username": username, "email": payload.email.strip(), "user_id": user_id}
@@ -202,9 +351,7 @@ async def register_user(payload: RegisterPayload):
 async def login_user(payload: LoginPayload):
     """Login with username + password, returns JWT token."""
     username = payload.username.strip().lower()
-    users = _load_users()
-
-    user = users.get(username)
+    user = _get_user_by_username(username)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
@@ -230,8 +377,7 @@ async def get_current_user(authorization: str = Query(None, alias="token")):
     if not decoded:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    users = _load_users()
-    user = users.get(decoded.get("username", ""))
+    user = _get_user_by_username(decoded.get("username", ""))
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -256,20 +402,11 @@ def _save_cagr_data(items: dict) -> None:
 
 
 def _load_saved_tickers() -> List[str]:
-    if not DATA_JSON_PATH.exists():
-        return []
-    try:
-        raw = json.loads(DATA_JSON_PATH.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return []
-    tickers = raw.get("tickers") or []
-    if not isinstance(tickers, list):
-        return []
-    return [str(t).strip() for t in tickers if str(t).strip()]
+    return _list_saved_tickers()
 
 
 def _save_tickers(tickers: List[str]) -> None:
-    DATA_JSON_PATH.write_text(json.dumps({"tickers": tickers}, indent=2), encoding="utf-8")
+    _replace_saved_tickers(tickers)
 
 
 def _reset_all_entries() -> None:
@@ -289,11 +426,8 @@ def _delete_ticker_entry(ticker: str) -> dict:
         }
 
     # Hapus dari saved tickers
-    saved = _load_saved_tickers()
-    filtered = [x for x in saved if x != t]
-    removed_saved = len(filtered) != len(saved)
-    if removed_saved:
-        _save_tickers(filtered)
+    removed_saved = _delete_saved_ticker(t)
+    filtered = _load_saved_tickers()
 
     # Hapus dari CAGR records
     cagr_items = _load_cagr_data()
@@ -890,12 +1024,8 @@ async def add_saved_ticker(payload: TickerPayload) -> dict:
     if not ticker:
         return {"tickers": _load_saved_tickers()}
 
-    tickers = _load_saved_tickers()
-    if ticker not in tickers:
-        tickers.append(ticker)
-        _save_tickers(tickers)
-
-    return {"tickers": tickers}
+    _add_saved_ticker(ticker)
+    return {"tickers": _load_saved_tickers()}
 
 
 @app.delete("/entry/{ticker}")

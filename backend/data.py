@@ -1033,221 +1033,278 @@ def get_stock_data(ticker_list):
     
     for symbol in ticker_list:
         print(f"Mengambil data untuk: {symbol}...")
-        stock = yf.Ticker(symbol)
-
-        # Beberapa field dari yfinance bisa None, jadi kita normalisasi dulu
-        is_rate_limited = False
         try:
-            info = stock.get_info()
+            stock = yf.Ticker(symbol)
+
+            # Beberapa field dari yfinance bisa None, jadi kita normalisasi dulu
+            is_rate_limited = False
+            try:
+                info = stock.get_info()
+            except Exception as e:
+                if 'RateLimitError' in type(e).__name__ or 'Too Many Requests' in str(e) or '429' in str(e):
+                    is_rate_limited = True
+                print(f"Error mengambil data '{symbol}': {e}")
+                info = {}
         except Exception as e:
-            if 'RateLimitError' in type(e).__name__ or 'Too Many Requests' in str(e) or '429' in str(e):
-                is_rate_limited = True
-            print(f"Error mengambil data '{symbol}': {e}")
+            print(f"Gagal inisialisasi ticker '{symbol}': {e}")
             info = {}
+            is_rate_limited = True
         
-        # 1. Data Dasar & Harga (Tabel Kuning)
-        current_price = info.get('currentPrice') or 0
-        high_52 = info.get('fiftyTwoWeekHigh') or 0
-        low_52 = info.get('fiftyTwoWeekLow') or 0
-        
-        # 2. Data Fundamental (Tabel Hijau)
-        eps = info.get('trailingEps') or 0
-        bvp_per_s = info.get('bookValue') or 0
-
-        roe_raw = info.get('returnOnEquity')
-        roe = float(roe_raw) * 100 if isinstance(roe_raw, (int, float)) else 0  # ke %
-
-        pbv = info.get('priceToBook') or 0
-        per = info.get('trailingPE') or 0
-        market_cap = info.get('marketCap') or 0
-        shares = info.get('sharesOutstanding') or 0
-        fcf = info.get('freeCashflow') or 0
-
-        div_yield = info.get('dividendYield')
-        payout_ratio_raw = info.get('payoutRatio')
-        div_growth_raw = info.get('dividendGrowth')
-        payout_ratio = _normalize_percent_value(payout_ratio_raw)
-        div_growth = _normalize_percent_value(div_growth_raw)
-
-        auto_cagr_net, auto_cagr_rev, auto_cagr_eps, auto_cagr_has = _extract_auto_cagr_from_stock(stock)
-
-        quality_info = dict(info) if isinstance(info, dict) else {}
-        de_info_raw = quality_info.get('debtToEquity')
-        de_info_num = _normalize_debt_to_equity_value(de_info_raw)
-        if de_info_num is None or not np.isfinite(de_info_num):
-            de_fallback = _estimate_debt_to_equity_from_balance_sheet(stock)
-            if de_fallback is not None and np.isfinite(de_fallback):
-                quality_info['debtToEquity'] = float(de_fallback)
-
-        quality = _compute_quality_profile(info=quality_info, roe_pct=roe, market_cap=float(market_cap or 0.0))
-
-        # Fallback: beberapa ticker tidak mengisi `dividendGrowth` secara konsisten
-        # di `info`, jadi hitung estimasi growth dari histori dividen 5 tahun.
-        if div_growth is None or not np.isfinite(div_growth) or div_growth <= 0:
-            hist_div_growth = _estimate_dividend_growth_from_history(stock, years=5)
-            if hist_div_growth is not None and np.isfinite(hist_div_growth):
-                div_growth = float(hist_div_growth)
-
-        
-        # 3. Perhitungan Kustom (Kalkulasi Otomatis)
-        # MOS Graham (sudah ada)
-        if eps > 0 and bvp_per_s > 0:
-            graham = np.sqrt(22.5 * eps * bvp_per_s)
-            mos_graham = ((graham - current_price) / graham) * 100
-        else:
-            graham = 0
-            mos_graham = 0.0
-
-        # MOS PBV historis (3Y):
-        # jika PBV sekarang < rerata historis, berarti lebih murah (MOS PBV positif).
-        pbv_now = 0.0
         try:
-            pbv_now = float(pbv)
-        except (TypeError, ValueError):
-            pbv_now = 0.0
-        if not np.isfinite(pbv_now) or pbv_now <= 0:
-            pbv_now = 0.0
-
-        if pbv_now <= 0 and bvp_per_s and float(bvp_per_s) > 0:
-            pbv_now = float(current_price) / float(bvp_per_s)
-
-        pbv_mean_3y = _estimate_pbv_mean_3y_from_history(stock, bvp_per_s)
-        if pbv_mean_3y is not None and np.isfinite(pbv_mean_3y) and pbv_mean_3y > 0 and pbv_now > 0:
-            mos_pbv = ((pbv_mean_3y - pbv_now) / pbv_mean_3y) * 100
-        else:
-            mos_pbv = mos_graham
-
-        # Hybrid MOS dengan bobot sektor:
-        # - Perbankan: PBV lebih dominan (Graham kurang relevan)
-        # - Teknologi/Aset Ringan: Graham sangat tidak relevan (Intangible assets besar). Gunakan PBV historis atau metriks lain.
-        # - Sektor Lain: Graham lebih dominan.
-        sector_lower = str(info.get('sector') or "").lower()
-        is_bank = bool(quality.get('is_bank')) or sector_lower in ["financial services", "financials", "bank"]
-        is_tech = sector_lower in ["technology", "communication services"]
-
-        has_graham = np.isfinite(mos_graham) and graham > 0
-        has_pbv = np.isfinite(mos_pbv)
-
-        if is_tech and has_pbv:
-            mos = float(mos_pbv) # Completely disregard Graham for Tech
-        elif has_graham and has_pbv:
-            if is_bank:
-                mos = (0.2 * mos_graham) + (0.8 * mos_pbv)
-            else:
-                mos = (0.8 * mos_graham) + (0.2 * mos_pbv)
-        elif has_pbv:
-            mos = float(mos_pbv)
-        else:
-            mos = float(mos_graham)
+            # 1. Data Dasar & Harga (Tabel Kuning)
+            current_price = info.get('currentPrice') or 0
+            high_52 = info.get('fiftyTwoWeekHigh') or 0
+            low_52 = info.get('fiftyTwoWeekLow') or 0
             
-        # Down from High (berapa % di bawah high)
-        down_from_high = ((high_52 - current_price) / high_52) * 100 if high_52 > 0 else 0
-        rise_from_low = ((current_price - low_52) / low_52) * 100 if low_52 > 0 else 0
+            # 2. Data Fundamental (Tabel Hijau)
+            eps = info.get('trailingEps') or 0
+            bvp_per_s = info.get('bookValue') or 0
 
-        # Short-horizon drawdown (signed):
-        # jika harga NAIK vs anchor period, nilai jadi negatif.
-        # contoh: naik 9% => Down From ... = -9%
-        down_from_month_high = 0.0
-        down_from_week_high = 0.0
-        down_from_today = 0.0
+            roe_raw = info.get('returnOnEquity')
+            roe = float(roe_raw) * 100 if isinstance(roe_raw, (int, float)) else 0  # ke %
 
-        try:
-            hist_1mo = stock.history(period="1mo", interval="1d")
-        except Exception:
-            hist_1mo = None
+            pbv = info.get('priceToBook') or 0
+            per = info.get('trailingPE') or 0
+            market_cap = info.get('marketCap') or 0
+            shares = info.get('sharesOutstanding') or 0
+            fcf = info.get('freeCashflow') or 0
 
-        month_anchor = 0.0
-        week_anchor = 0.0
-        if hist_1mo is not None and not hist_1mo.empty:
-            # Anchor bulanan = Open pertama pada window 1 bulan
-            if "Open" in hist_1mo.columns:
-                month_anchor = float(hist_1mo.iloc[0].get("Open") or 0.0)
+            div_yield = info.get('dividendYield')
+            payout_ratio_raw = info.get('payoutRatio')
+            div_growth_raw = info.get('dividendGrowth')
+            payout_ratio = _normalize_percent_value(payout_ratio_raw)
+            div_growth = _normalize_percent_value(div_growth_raw)
 
-            # Anchor mingguan = Open pertama dari 5 hari trading terakhir
-            last_5 = hist_1mo.tail(5)
-            if not last_5.empty and "Open" in last_5.columns:
-                week_anchor = float(last_5.iloc[0].get("Open") or 0.0)
+            auto_cagr_net, auto_cagr_rev, auto_cagr_eps, auto_cagr_has = _extract_auto_cagr_from_stock(stock)
 
-        # Anchor harian = Open hari ini
-        day_anchor = float(info.get('open') or 0.0)
+            quality_info = dict(info) if isinstance(info, dict) else {}
+            de_info_raw = quality_info.get('debtToEquity')
+            de_info_num = _normalize_debt_to_equity_value(de_info_raw)
+            if de_info_num is None or not np.isfinite(de_info_num):
+                de_fallback = _estimate_debt_to_equity_from_balance_sheet(stock)
+                if de_fallback is not None and np.isfinite(de_fallback):
+                    quality_info['debtToEquity'] = float(de_fallback)
 
-        # Rumus signed drawdown: (anchor - current) / anchor
-        # current > anchor => negatif (harga naik)
-        if month_anchor > 0:
-            down_from_month_high = ((month_anchor - current_price) / month_anchor) * 100
-        if week_anchor > 0:
-            down_from_week_high = ((week_anchor - current_price) / week_anchor) * 100
-        if day_anchor > 0:
-            down_from_today = ((day_anchor - current_price) / day_anchor) * 100
+            quality = _compute_quality_profile(info=quality_info, roe_pct=roe, market_cap=float(market_cap or 0.0))
 
-        # 4. Mesin Keputusan (BUY / Diskon / Dividen)
-        buy_decision, discount_label, discount_score, dividend_label = _decision_engine(
-            current_price=current_price,
-            mos=mos,
-            roe=roe,
-            pbv=pbv,
-            div_yield=div_yield,
-            down_from_high=down_from_high,
-            rise_from_low=rise_from_low,
-            down_from_month=down_from_month_high,
-            down_from_week=down_from_week_high,
-            down_from_today=down_from_today,
-        )
+            # Fallback: beberapa ticker tidak mengisi `dividendGrowth` secara konsisten
+            # di `info`, jadi hitung estimasi growth dari histori dividen 5 tahun.
+            if div_growth is None or not np.isfinite(div_growth) or div_growth <= 0:
+                hist_div_growth = _estimate_dividend_growth_from_history(stock, years=5)
+                if hist_div_growth is not None and np.isfinite(hist_div_growth):
+                    div_growth = float(hist_div_growth)
 
-        # Menyusun data ke dalam dictionary
-        data = {
-            'Ticker': symbol,
-            'Name': info.get('shortName', symbol),
-            'Sector': info.get('sector') or '-',
-            'Industry': info.get('industry') or '-',
-            'Price': current_price,
-            'Revenue Annual (Prev)': info.get('totalRevenue') or 0,
-            'EPS NOW': eps,
-            'PER NOW': per,
-            'HIGH 52': high_52,
-            'LOW 52': low_52,
-            'Shares': shares,
-            'Market Cap': market_cap,
-            'Down From High 52 (%)': round(down_from_high, 2),
-            'Down From This Month (%)': round(down_from_month_high, 2),
-            'Down From This Week (%)': round(down_from_week_high, 2),
-            'Down From Today (%)': round(down_from_today, 2),
-            'Rise From Low 52 (%)': round(rise_from_low, 2),
-            'BVP Per S': bvp_per_s,
-            'ROE (%)': round(roe, 2),
-            'Graham Number': round(graham, 2),
-            'MOS (%)': round(mos, 2),
-            'Free Cashflow': fcf,
-            'PBV': pbv,
-            'PBV Mean 3Y': round(pbv_mean_3y, 3) if pbv_mean_3y is not None and np.isfinite(pbv_mean_3y) else None,
-            'MOS Graham (%)': round(float(mos_graham), 2) if np.isfinite(mos_graham) else None,
-            'MOS PBV (%)': round(float(mos_pbv), 2) if np.isfinite(mos_pbv) else None,
-            'Net Profit Margin (%)': round(quality.get('npm_pct'), 2) if quality.get('npm_pct') is not None else None,
-            'Debt To Equity (%)': round(quality.get('debt_to_equity_pct'), 2) if quality.get('debt_to_equity_pct') is not None else None,
-            'Current Ratio': round(quality.get('current_ratio'), 2) if quality.get('current_ratio') is not None else None,
-            'Quality Score': round(float(quality.get('score') or 0.0), 3),
-            'Quality Label': quality.get('label') or '-',
-            'Dividend Yield (%)': div_yield,
-            'Dividend Growth (%)': round(div_growth, 2) if div_growth is not None else None,
-            'Payout Ratio (%)': round(payout_ratio, 2) if payout_ratio is not None else None,
-            'Auto CAGR Net Income (%)': round(float(auto_cagr_net), 3) if auto_cagr_has else None,
-            'Auto CAGR Revenue (%)': round(float(auto_cagr_rev), 3) if auto_cagr_has else None,
-            'Auto CAGR EPS (%)': round(float(auto_cagr_eps), 3) if auto_cagr_has else None,
-            'Decision Buy': buy_decision,
-            'Decision Discount': discount_label,
-            'Discount Score': round(float(discount_score), 3),
-            'Decision Dividend': dividend_label,
-            'Is Rate Limited': is_rate_limited
-        }
-        all_data.append(data)
+            
+            # 3. Perhitungan Kustom (Kalkulasi Otomatis)
+            # MOS Graham (sudah ada)
+            if eps > 0 and bvp_per_s > 0:
+                graham = np.sqrt(22.5 * eps * bvp_per_s)
+                mos_graham = ((graham - current_price) / graham) * 100
+            else:
+                graham = 0
+                mos_graham = 0.0
+
+            # MOS PBV historis (3Y):
+            # jika PBV sekarang < rerata historis, berarti lebih murah (MOS PBV positif).
+            pbv_now = 0.0
+            try:
+                pbv_now = float(pbv)
+            except (TypeError, ValueError):
+                pbv_now = 0.0
+            if not np.isfinite(pbv_now) or pbv_now <= 0:
+                pbv_now = 0.0
+
+            if pbv_now <= 0 and bvp_per_s and float(bvp_per_s) > 0:
+                pbv_now = float(current_price) / float(bvp_per_s)
+
+            pbv_mean_3y = _estimate_pbv_mean_3y_from_history(stock, bvp_per_s)
+            if pbv_mean_3y is not None and np.isfinite(pbv_mean_3y) and pbv_mean_3y > 0 and pbv_now > 0:
+                mos_pbv = ((pbv_mean_3y - pbv_now) / pbv_mean_3y) * 100
+            else:
+                mos_pbv = mos_graham
+
+            # Hybrid MOS dengan bobot sektor:
+            # - Perbankan: PBV lebih dominan (Graham kurang relevan)
+            # - Teknologi/Aset Ringan: Graham sangat tidak relevan (Intangible assets besar). Gunakan PBV historis atau metriks lain.
+            # - Sektor Lain: Graham lebih dominan.
+            sector_lower = str(info.get('sector') or "").lower()
+            is_bank = bool(quality.get('is_bank')) or sector_lower in ["financial services", "financials", "bank"]
+            is_tech = sector_lower in ["technology", "communication services"]
+
+            has_graham = np.isfinite(mos_graham) and graham > 0
+            has_pbv = np.isfinite(mos_pbv)
+
+            if is_tech and has_pbv:
+                mos = float(mos_pbv) # Completely disregard Graham for Tech
+            elif has_graham and has_pbv:
+                if is_bank:
+                    mos = (0.2 * mos_graham) + (0.8 * mos_pbv)
+                else:
+                    mos = (0.8 * mos_graham) + (0.2 * mos_pbv)
+            elif has_pbv:
+                mos = float(mos_pbv)
+            else:
+                mos = float(mos_graham)
+                
+            # Down from High (berapa % di bawah high)
+            down_from_high = ((high_52 - current_price) / high_52) * 100 if high_52 > 0 else 0
+            rise_from_low = ((current_price - low_52) / low_52) * 100 if low_52 > 0 else 0
+
+            # Short-horizon drawdown (signed):
+            # jika harga NAIK vs anchor period, nilai jadi negatif.
+            # contoh: naik 9% => Down From ... = -9%
+            down_from_month_high = 0.0
+            down_from_week_high = 0.0
+            down_from_today = 0.0
+
+            try:
+                hist_1mo = stock.history(period="1mo", interval="1d")
+            except Exception:
+                hist_1mo = None
+
+            month_anchor = 0.0
+            week_anchor = 0.0
+            if hist_1mo is not None and not hist_1mo.empty:
+                # Anchor bulanan = Open pertama pada window 1 bulan
+                if "Open" in hist_1mo.columns:
+                    month_anchor = float(hist_1mo.iloc[0].get("Open") or 0.0)
+
+                # Anchor mingguan = Open pertama dari 5 hari trading terakhir
+                last_5 = hist_1mo.tail(5)
+                if not last_5.empty and "Open" in last_5.columns:
+                    week_anchor = float(last_5.iloc[0].get("Open") or 0.0)
+
+            # Anchor harian = Open hari ini
+            day_anchor = float(info.get('open') or 0.0)
+
+            # Rumus signed drawdown: (anchor - current) / anchor
+            # current > anchor => negatif (harga naik)
+            if month_anchor > 0:
+                down_from_month_high = ((month_anchor - current_price) / month_anchor) * 100
+            if week_anchor > 0:
+                down_from_week_high = ((week_anchor - current_price) / week_anchor) * 100
+            if day_anchor > 0:
+                down_from_today = ((day_anchor - current_price) / day_anchor) * 100
+
+            # 4. Mesin Keputusan (BUY / Diskon / Dividen)
+            buy_decision, discount_label, discount_score, dividend_label = _decision_engine(
+                current_price=current_price,
+                mos=mos,
+                roe=roe,
+                pbv=pbv,
+                div_yield=div_yield,
+                down_from_high=down_from_high,
+                rise_from_low=rise_from_low,
+                down_from_month=down_from_month_high,
+                down_from_week=down_from_week_high,
+                down_from_today=down_from_today,
+            )
+
+            # Menyusun data ke dalam dictionary
+            data = {
+                'Ticker': symbol,
+                'Name': info.get('shortName', symbol),
+                'Sector': info.get('sector') or '-',
+                'Industry': info.get('industry') or '-',
+                'Price': current_price,
+                'Revenue Annual (Prev)': info.get('totalRevenue') or 0,
+                'EPS NOW': eps,
+                'PER NOW': per,
+                'HIGH 52': high_52,
+                'LOW 52': low_52,
+                'Shares': shares,
+                'Market Cap': market_cap,
+                'Down From High 52 (%)': round(down_from_high, 2),
+                'Down From This Month (%)': round(down_from_month_high, 2),
+                'Down From This Week (%)': round(down_from_week_high, 2),
+                'Down From Today (%)': round(down_from_today, 2),
+                'Rise From Low 52 (%)': round(rise_from_low, 2),
+                'BVP Per S': bvp_per_s,
+                'ROE (%)': round(roe, 2),
+                'Graham Number': round(graham, 2),
+                'MOS (%)': round(mos, 2),
+                'Free Cashflow': fcf,
+                'PBV': pbv,
+                'PBV Mean 3Y': round(pbv_mean_3y, 3) if pbv_mean_3y is not None and np.isfinite(pbv_mean_3y) else None,
+                'MOS Graham (%)': round(float(mos_graham), 2) if np.isfinite(mos_graham) else None,
+                'MOS PBV (%)': round(float(mos_pbv), 2) if np.isfinite(mos_pbv) else None,
+                'Net Profit Margin (%)': round(quality.get('npm_pct'), 2) if quality.get('npm_pct') is not None else None,
+                'Debt To Equity (%)': round(quality.get('debt_to_equity_pct'), 2) if quality.get('debt_to_equity_pct') is not None else None,
+                'Current Ratio': round(quality.get('current_ratio'), 2) if quality.get('current_ratio') is not None else None,
+                'Quality Score': round(float(quality.get('score') or 0.0), 3),
+                'Quality Label': quality.get('label') or '-',
+                'Dividend Yield (%)': div_yield,
+                'Dividend Growth (%)': round(div_growth, 2) if div_growth is not None else None,
+                'Payout Ratio (%)': round(payout_ratio, 2) if payout_ratio is not None else None,
+                'Auto CAGR Net Income (%)': round(float(auto_cagr_net), 3) if auto_cagr_has else None,
+                'Auto CAGR Revenue (%)': round(float(auto_cagr_rev), 3) if auto_cagr_has else None,
+                'Auto CAGR EPS (%)': round(float(auto_cagr_eps), 3) if auto_cagr_has else None,
+                'Decision Buy': buy_decision,
+                'Decision Discount': discount_label,
+                'Discount Score': round(float(discount_score), 3),
+                'Decision Dividend': dividend_label,
+                'Is Rate Limited': is_rate_limited
+            }
+            all_data.append(data)
+        except Exception as e:
+            print(f"Warning: gagal proses ticker '{symbol}': {e}")
+            all_data.append({
+                'Ticker': symbol,
+                'Name': symbol,
+                'Sector': '-','Industry': '-',
+                'Price': 0,
+                'Revenue Annual (Prev)': 0,
+                'EPS NOW': 0,
+                'PER NOW': 0,
+                'HIGH 52': 0,
+                'LOW 52': 0,
+                'Shares': 0,
+                'Market Cap': 0,
+                'Down From High 52 (%)': 0,
+                'Down From This Month (%)': 0,
+                'Down From This Week (%)': 0,
+                'Down From Today (%)': 0,
+                'Rise From Low 52 (%)': 0,
+                'BVP Per S': 0,
+                'ROE (%)': 0,
+                'Graham Number': 0,
+                'MOS (%)': 0,
+                'Free Cashflow': 0,
+                'PBV': 0,
+                'PBV Mean 3Y': None,
+                'MOS Graham (%)': None,
+                'MOS PBV (%)': None,
+                'Net Profit Margin (%)': None,
+                'Debt To Equity (%)': None,
+                'Current Ratio': None,
+                'Quality Score': 0,
+                'Quality Label': '-',
+                'Dividend Yield (%)': None,
+                'Dividend Growth (%)': None,
+                'Payout Ratio (%)': None,
+                'Auto CAGR Net Income (%)': None,
+                'Auto CAGR Revenue (%)': None,
+                'Auto CAGR EPS (%)': None,
+                'Decision Buy': 'NO BUY',
+                'Decision Discount': '-',
+                'Discount Score': 0,
+                'Decision Dividend': '-',
+                'Is Rate Limited': True,
+            })
     
     df = pd.DataFrame(all_data)
+    if df.empty:
+        return df
 
     # Terapkan Hybrid FUZZY AHP-TOPSIS untuk keputusan BUY/NO BUY
-    df = _apply_fuzzy_ahp_topsis_buy_decision(df)
-    df = _apply_payout_ratio_safety_check(df)
-    df = _apply_quality_verdict(df)
-    df = _apply_discount_timing_verdict(df)
+    try:
+        df = _apply_fuzzy_ahp_topsis_buy_decision(df)
+        df = _apply_payout_ratio_safety_check(df)
+        df = _apply_quality_verdict(df)
+        df = _apply_discount_timing_verdict(df)
+    except Exception as e:
+        print(f"Warning: gagal apply decision engine: {e}")
+        return df
 
     return df
 
