@@ -211,7 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   shaderCallback: (bounds) =>
                       AppColors.primaryGradient.createShader(bounds),
                   child: const Text(
-                    '📈 Tick Watchers',
+                    'TICK WATCHERS',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w800,
@@ -222,7 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Decision Making Support System',
+                  'Stock Decision Support',
                   style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
                 ),
                 const SizedBox(height: 32),

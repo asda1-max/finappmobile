@@ -54,7 +54,7 @@ class _AiChatScreenState extends State<AiChatScreen>
   void _addWelcomeMessage() {
     _messages.add(_ChatMessage(
       text:
-          'Halo! 👋 Saya **Tick AI**, asisten analisis saham kamu.\n\n'
+          'Halo! 👋 Selamat datang di Market Desk, asisten analisis saham Anda.\n\n'
           'Saya bisa membantu:\n'
           '• 📊 Analisis fundamental saham di watchlist\n'
           '• 🔍 Menjelaskan keputusan BUY/NO BUY\n'
@@ -231,7 +231,7 @@ class _AiChatScreenState extends State<AiChatScreen>
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
-              Icons.auto_awesome,
+              Icons.forum_rounded,
               color: Colors.white,
               size: 20,
             ),
@@ -245,7 +245,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                   shaderCallback: (bounds) =>
                       AppColors.primaryGradient.createShader(bounds),
                   child: const Text(
-                    'Tick AI',
+                    'Market Desk',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -418,7 +418,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                     Icon(
                       message.isError
                           ? Icons.error_outline_rounded
-                          : Icons.auto_awesome,
+                          : Icons.forum_rounded,
                       size: 12,
                       color: message.isError
                           ? AppColors.sellRed
@@ -426,7 +426,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      message.isError ? 'Error' : 'Tick AI',
+                      message.isError ? 'Error' : 'Analyst',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
@@ -501,7 +501,7 @@ class _AiChatScreenState extends State<AiChatScreen>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.auto_awesome, size: 12, color: AppColors.primary),
+            Icon(Icons.forum_rounded, size: 12, color: AppColors.primary),
             const SizedBox(width: 8),
             SizedBox(
               width: 14,
@@ -513,7 +513,7 @@ class _AiChatScreenState extends State<AiChatScreen>
             ),
             const SizedBox(width: 8),
             Text(
-              'Analyzing...',
+              'Memproses...',
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.textTertiary,
@@ -595,7 +595,7 @@ class _AiChatScreenState extends State<AiChatScreen>
                     horizontal: 16,
                     vertical: 10,
                   ),
-                  hintText: 'Tanya tentang saham...',
+                  hintText: 'Ketik pertanyaan Anda...',
                   hintStyle: TextStyle(
                     color: AppColors.textMuted,
                     fontSize: 13,

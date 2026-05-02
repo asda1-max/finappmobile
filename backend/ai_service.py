@@ -6,6 +6,7 @@ via the OpenRouter API (compatible with any model they host).
 
 from __future__ import annotations
 
+import asyncio
 import os
 import json
 from typing import Optional
@@ -31,7 +32,7 @@ async def chat_completion(
     user_message: str,
     *,
     model: Optional[str] = None,
-    max_tokens: int = 1536,
+    max_tokens: int = 512,
     temperature: float = 0.7,
 ) -> str:
     """Send a chat completion request to OpenRouter.
@@ -64,25 +65,36 @@ async def chat_completion(
         "temperature": temperature,
     }
 
-    async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-        response = await client.post(
-            f"{OPENROUTER_BASE_URL}/chat/completions",
-            headers=headers,
-            json=payload,
-        )
+    for attempt in range(3):  # retry 3x
+        try:
+            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+                response = await client.post(
+                    f"{OPENROUTER_BASE_URL}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                )
 
-        if response.status_code != 200:
-            error_body = response.text
-            raise RuntimeError(
-                f"OpenRouter API error {response.status_code}: {error_body}"
-            )
+            if response.status_code != 200:
+                print("🔴 STATUS:", response.status_code)
+                print("🔴 BODY:", response.text)
+                raise RuntimeError(
+                    f"OpenRouter API error {response.status_code}: {response.text}"
+                )
 
-        data = response.json()
-        choices = data.get("choices") or []
-        if not choices:
-            raise RuntimeError("OpenRouter returned empty choices")
+            data = response.json()
+            choices = data.get("choices") or []
+            if not choices:
+                raise RuntimeError("OpenRouter returned empty choices")
 
-        return choices[0]["message"]["content"]
+            return choices[0]["message"]["content"]
+
+        except Exception as e:
+            print(f"❌ AI ERROR (attempt {attempt+1}):", str(e))
+
+            if attempt == 2:
+                raise
+
+            await asyncio.sleep(1.5 * (attempt + 1))  # backoff
 
 
 # ── System Prompts ──

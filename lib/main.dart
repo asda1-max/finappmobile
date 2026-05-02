@@ -309,12 +309,12 @@ class _AppShellState extends ConsumerState<AppShell> {
               label: 'Dashboard',
             ),
             NavigationDestination(
-              icon: Icon(Icons.auto_awesome, color: AppColors.textMuted),
+              icon: Icon(Icons.chat_bubble_outline_rounded, color: AppColors.textMuted),
               selectedIcon: Icon(
-                Icons.auto_awesome,
+                Icons.chat_bubble_outline_rounded,
                 color: AppColors.primary,
               ),
-              label: 'Tick AI',
+              label: 'Market Desk',
             ),
             NavigationDestination(
               icon: Icon(Icons.leaderboard_rounded, color: AppColors.textMuted),
@@ -599,7 +599,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Decision Making Support System',
+                              'Stock Decision Support',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textTertiary,

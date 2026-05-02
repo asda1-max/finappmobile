@@ -87,7 +87,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                   child: Column(
                     children: [
                       const Text(
-                        'FUZZY AHP-TOPSIS DECISION',
+                        'KEPUTUSAN INVESTASI',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
@@ -157,7 +157,7 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.auto_awesome,
+                          Icons.description_rounded,
                           size: 16,
                           color: AppColors.primary,
                         ),
@@ -165,8 +165,8 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                         Expanded(
                           child: Text(
                             _showExplanation
-                                ? 'Sembunyikan Penjelasan AI'
-                                : '🤖 Jelaskan Keputusan Ini',
+                                ? 'Sembunyikan Analisis'
+                                : 'Jelaskan Keputusan Ini',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -210,13 +210,13 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
                         Row(
                           children: [
                             Icon(
-                              Icons.auto_awesome,
+                              Icons.description_rounded,
                               size: 12,
                               color: AppColors.accent,
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              'AI Analysis',
+                              'Analisis Mendalam',
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
