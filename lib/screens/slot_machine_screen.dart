@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sensors_plus/sensors_plus.dart';
+
 import '../core/theme/app_colors.dart';
 import '../widgets/glassmorphic_card.dart';
 import '../main.dart';
@@ -47,6 +50,10 @@ class _SlotMachineScreenState extends ConsumerState<SlotMachineScreen>
   final List<AnimationController> _reelControllers = [];
   final List<Animation<double>> _reelAnimations = [];
 
+  // Shake detection
+  StreamSubscription<AccelerometerEvent>? _shakeSubscription;
+  DateTime _lastShakeTime = DateTime.now();
+
   // Result
   String? _resultTicker;
   String? _resultMessage;
@@ -76,10 +83,26 @@ class _SlotMachineScreenState extends ConsumerState<SlotMachineScreen>
         CurvedAnimation(parent: ctrl, curve: Curves.easeOutBack),
       );
     }
+
+    _shakeSubscription = accelerometerEventStream().listen((event) {
+      if (_spinning || !mounted) return;
+      final magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
+      // Average gravity is ~9.8, so 18.0 is a decent shake threshold
+      if (magnitude > 18.0) {
+        final now = DateTime.now();
+        if (now.difference(_lastShakeTime) > const Duration(seconds: 2)) {
+          _lastShakeTime = now;
+          if (_coins >= 10) {
+            _spin();
+          }
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
+    _shakeSubscription?.cancel();
     _pulseController.dispose();
     _glowController.dispose();
     for (final c in _reelControllers) {
@@ -267,7 +290,7 @@ class _SlotMachineScreenState extends ConsumerState<SlotMachineScreen>
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Spin untuk rekomendasi saham dari watchlist!',
+                  'Kocok HP atau tap Spin untuk rekomendasi saham dari watchlist!',
                   style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
                 ),
               ),
@@ -473,10 +496,10 @@ class _SlotMachineScreenState extends ConsumerState<SlotMachineScreen>
                               : const Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.casino_rounded, size: 22),
+                                    Icon(Icons.vibration_rounded, size: 22),
                                     SizedBox(width: 8),
                                     Text(
-                                      'SPIN! (10 Koin)',
+                                      'SHAKE / SPIN! (10 Koin)',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w800,

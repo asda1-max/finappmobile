@@ -23,7 +23,7 @@ import 'screens/logout_screen.dart';
 import 'screens/ai_chat_screen.dart';
 import 'screens/nearby_screen.dart';
 import 'screens/slot_machine_screen.dart';
-
+import 'screens/let_it_ride_screen.dart';
 // ── Providers ──
 
 final stockRepositoryProvider = Provider<StockRepository>((ref) {
@@ -234,6 +234,13 @@ class _AppShellState extends ConsumerState<AppShell> {
                 onTap: () => Navigator.pop(ctx, 9),
               ),
               _MoreActionTile(
+                icon: Icons.rocket_launch_rounded,
+                label: 'Let It Ride',
+                index: 10,
+                accent: AppColors.buyGreen,
+                onTap: () => Navigator.pop(ctx, 10),
+              ),
+              _MoreActionTile(
                 icon: Icons.logout_rounded,
                 label: 'Logout',
                 index: 7,
@@ -271,6 +278,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       LogoutScreen(onLogout: widget.onLogout),
       const NearbyScreen(),
       const SlotMachineScreen(),
+      const LetItRideScreen(),
     ];
 
     return Scaffold(
