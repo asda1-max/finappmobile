@@ -11,6 +11,7 @@ import 'core/services/notification_service.dart';
 import 'models/stock_data.dart';
 import 'data/stock_repository.dart';
 import 'widgets/glassmorphic_card.dart';
+import 'widgets/premium_alert_overlay.dart';
 import 'widgets/score_badge.dart';
 import 'screens/login_screen.dart';
 import 'screens/ranking_screen.dart';
@@ -198,6 +199,10 @@ class _AppShellState extends ConsumerState<AppShell> {
     final selected = await showModalBottomSheet<int>(
       context: context,
       backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.6,
+      ),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -215,59 +220,67 @@ class _AppShellState extends ConsumerState<AppShell> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              const SizedBox(height: 12),
-              _MoreActionTile(
-                icon: Icons.person_rounded,
-                label: 'Profil',
-                index: 4,
-                onTap: () => Navigator.pop(ctx, 4),
+              const SizedBox(height: 4),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _MoreActionTile(
+                      icon: Icons.person_rounded,
+                      label: 'Profil',
+                      index: 4,
+                      onTap: () => Navigator.pop(ctx, 4),
+                    ),
+                    _MoreActionTile(
+                      icon: Icons.feedback_rounded,
+                      label: 'Saran & Kesan',
+                      index: 5,
+                      onTap: () => Navigator.pop(ctx, 5),
+                    ),
+                    _MoreActionTile(
+                      icon: Icons.settings_rounded,
+                      label: 'Settings',
+                      index: 6,
+                      onTap: () => Navigator.pop(ctx, 6),
+                    ),
+                    _MoreActionTile(
+                      icon: Icons.menu_book_rounded,
+                      label: 'Glossary',
+                      index: 7,
+                      onTap: () => Navigator.pop(ctx, 7),
+                    ),
+                    _MoreActionTile(
+                      icon: Icons.map_rounded,
+                      label: 'Lokasi Terdekat',
+                      index: 9,
+                      onTap: () => Navigator.pop(ctx, 9),
+                    ),
+                    _MoreActionTile(
+                      icon: Icons.casino_rounded,
+                      label: 'Slot Machine',
+                      index: 10,
+                      accent: const Color(0xFFFFD700),
+                      onTap: () => Navigator.pop(ctx, 10),
+                    ),
+                    _MoreActionTile(
+                      icon: Icons.rocket_launch_rounded,
+                      label: 'Let It Ride',
+                      index: 11,
+                      accent: AppColors.buyGreen,
+                      onTap: () => Navigator.pop(ctx, 11),
+                    ),
+                    _MoreActionTile(
+                      icon: Icons.logout_rounded,
+                      label: 'Logout',
+                      index: 8,
+                      accent: AppColors.sellRed,
+                      onTap: () => Navigator.pop(ctx, 8),
+                    ),
+                  ],
+                ),
               ),
-              _MoreActionTile(
-                icon: Icons.feedback_rounded,
-                label: 'Saran & Kesan',
-                index: 5,
-                onTap: () => Navigator.pop(ctx, 5),
-              ),
-              _MoreActionTile(
-                icon: Icons.settings_rounded,
-                label: 'Settings',
-                index: 6,
-                onTap: () => Navigator.pop(ctx, 6),
-              ),
-              _MoreActionTile(
-                icon: Icons.menu_book_rounded,
-                label: 'Glossary',
-                index: 7,
-                onTap: () => Navigator.pop(ctx, 7),
-              ),
-              _MoreActionTile(
-                icon: Icons.map_rounded,
-                label: 'Lokasi Terdekat',
-                index: 9,
-                onTap: () => Navigator.pop(ctx, 9),
-              ),
-              _MoreActionTile(
-                icon: Icons.casino_rounded,
-                label: 'Slot Machine',
-                index: 10,
-                accent: const Color(0xFFFFD700),
-                onTap: () => Navigator.pop(ctx, 10),
-              ),
-              _MoreActionTile(
-                icon: Icons.rocket_launch_rounded,
-                label: 'Let It Ride',
-                index: 11,
-                accent: AppColors.buyGreen,
-                onTap: () => Navigator.pop(ctx, 11),
-              ),
-              _MoreActionTile(
-                icon: Icons.logout_rounded,
-                label: 'Logout',
-                index: 8,
-                accent: AppColors.sellRed,
-                onTap: () => Navigator.pop(ctx, 8),
-              ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
             ],
           ),
         );
@@ -302,79 +315,133 @@ class _AppShellState extends ConsumerState<AppShell> {
       const LetItRideScreen(),
     ];
 
+    // Hide bottom nav when on "More" sub-screens (index >= 4)
+    final bool showBottomNav = _currentIndex < 4;
+
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: screens),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          border: Border(
-            top: BorderSide(color: AppColors.cardBorder, width: 1),
-          ),
-        ),
-        child: NavigationBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          height: 64,
-          selectedIndex: _navIndex,
-          onDestinationSelected: (i) {
-            if (i == 4) {
-              _openMoreMenu();
-              return;
-            }
-            _handleTabChange(i);
-          },
-          indicatorColor: AppColors.primary.withValues(alpha: 0.15),
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.dashboard_rounded, color: AppColors.textMuted),
-              selectedIcon: Icon(
-                Icons.dashboard_rounded,
-                color: AppColors.primary,
+      body: Stack(
+        children: [
+          IndexedStack(index: _currentIndex, children: screens),
+          // Floating back pill for "More" sub-screens
+          if (!showBottomNav)
+            Positioned(
+              bottom: MediaQuery.of(context).padding.bottom + 16,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () => _handleTabChange(0),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: AppColors.cardBorder),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.arrow_back_rounded,
+                            size: 16, color: AppColors.primary),
+                        SizedBox(width: 6),
+                        Text(
+                          'Kembali ke Dashboard',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              label: 'Dashboard',
             ),
-            NavigationDestination(
-              icon: Icon(Icons.chat_bubble_outline_rounded, color: AppColors.textMuted),
-              selectedIcon: Icon(
-                Icons.chat_bubble_outline_rounded,
-                color: AppColors.primary,
-              ),
-              label: 'Market Desk',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.leaderboard_rounded, color: AppColors.textMuted),
-              selectedIcon: Icon(
-                Icons.leaderboard_rounded,
-                color: AppColors.primary,
-              ),
-              label: 'Rankings',
-            ),
-            NavigationDestination(
-              icon: Icon(
-                Icons.currency_exchange_rounded,
-                color: AppColors.textMuted,
-              ),
-              selectedIcon: Icon(
-                Icons.currency_exchange_rounded,
-                color: AppColors.primary,
-              ),
-              label: 'Utilities',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.more_horiz_rounded, color: AppColors.textMuted),
-              selectedIcon: Icon(
-                Icons.more_horiz_rounded,
-                color: AppColors.primary,
-              ),
-              label: 'More',
-            ),
-          ],
-        ),
+        ],
       ),
+      bottomNavigationBar: showBottomNav
+          ? Container(
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                border: Border(
+                  top: BorderSide(color: AppColors.cardBorder, width: 1),
+                ),
+              ),
+              child: NavigationBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                height: 64,
+                selectedIndex: _navIndex,
+                onDestinationSelected: (i) {
+                  if (i == 4) {
+                    _openMoreMenu();
+                    return;
+                  }
+                  _handleTabChange(i);
+                },
+                indicatorColor: AppColors.primary.withValues(alpha: 0.15),
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.dashboard_rounded, color: AppColors.textMuted),
+                    selectedIcon: Icon(
+                      Icons.dashboard_rounded,
+                      color: AppColors.primary,
+                    ),
+                    label: 'Dashboard',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.chat_bubble_outline_rounded, color: AppColors.textMuted),
+                    selectedIcon: Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      color: AppColors.primary,
+                    ),
+                    label: 'Market Desk',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.leaderboard_rounded, color: AppColors.textMuted),
+                    selectedIcon: Icon(
+                      Icons.leaderboard_rounded,
+                      color: AppColors.primary,
+                    ),
+                    label: 'Rankings',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(
+                      Icons.currency_exchange_rounded,
+                      color: AppColors.textMuted,
+                    ),
+                    selectedIcon: Icon(
+                      Icons.currency_exchange_rounded,
+                      color: AppColors.primary,
+                    ),
+                    label: 'Utilities',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.more_horiz_rounded, color: AppColors.textMuted),
+                    selectedIcon: Icon(
+                      Icons.more_horiz_rounded,
+                      color: AppColors.primary,
+                    ),
+                    label: 'More',
+                  ),
+                ],
+              ),
+            )
+          : null,
     );
   }
 }
+
 
 class _MoreActionTile extends StatelessWidget {
   final IconData icon;
@@ -573,27 +640,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       threshold: threshold,
     );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.terminal_rounded, color: AppColors.background, size: 16),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '> ALERT: ${stock.ticker} UP ${changeUp.toStringAsFixed(2)}%',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.background,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.primary,
-        duration: const Duration(seconds: 4),
-      ),
+    // Premium in-app overlay (replaces plain SnackBar)
+    PremiumAlertOverlay.showPriceAlert(
+      context,
+      ticker: stock.ticker,
+      changeUp: changeUp,
+      threshold: threshold,
     );
   }
 

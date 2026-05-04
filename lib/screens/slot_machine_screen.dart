@@ -262,10 +262,16 @@ class _SlotMachineScreenState extends ConsumerState<SlotMachineScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-          child: Column(
-            children: [
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Responsive reel height based on screen size
+            final reelHeight = (constraints.maxHeight * 0.13).clamp(60.0, 100.0);
+            final emojiSize = (reelHeight * 0.42).clamp(24.0, 42.0);
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 60),
+              child: Column(
+                children: [
               // Header
               Row(
                 children: [
@@ -407,6 +413,8 @@ class _SlotMachineScreenState extends ConsumerState<SlotMachineScreen>
                                     scale: _spinning
                                         ? (0.7 + anim * 0.3)
                                         : 1.0,
+                                    height: reelHeight,
+                                    emojiSize: emojiSize,
                                   );
                                 },
                               ),
@@ -493,17 +501,22 @@ class _SlotMachineScreenState extends ConsumerState<SlotMachineScreen>
                                         style: TextStyle(fontSize: 16)),
                                   ],
                                 )
-                              : const Row(
+                              : Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.vibration_rounded, size: 22),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'SHAKE / SPIN! (10 Koin)',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 1,
+                                    const Icon(Icons.vibration_rounded, size: 22),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: const Text(
+                                          'SHAKE / SPIN! (10 Koin)',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 1,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -573,6 +586,8 @@ class _SlotMachineScreenState extends ConsumerState<SlotMachineScreen>
               ),
             ],
           ),
+        );
+          },
         ),
       ),
     );
@@ -585,18 +600,22 @@ class _ReelCell extends StatelessWidget {
   final SlotSymbol symbol;
   final bool spinning;
   final double scale;
+  final double height;
+  final double emojiSize;
 
   const _ReelCell({
     required this.symbol,
     required this.spinning,
     required this.scale,
+    this.height = 100,
+    this.emojiSize = 42,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 4),
-      height: 100,
+      height: height,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -628,7 +647,7 @@ class _ReelCell extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           child: Text(
             spinning ? '❓' : symbol.emoji,
-            style: const TextStyle(fontSize: 42),
+            style: TextStyle(fontSize: emojiSize),
           ),
         ),
       ),

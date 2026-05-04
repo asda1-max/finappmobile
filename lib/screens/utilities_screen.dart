@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import '../core/theme/app_colors.dart';
+import '../core/theme/input_decorators.dart';
 import '../widgets/glassmorphic_card.dart';
 
 class UtilitiesScreen extends StatefulWidget {
@@ -236,15 +237,8 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     style: const TextStyle(color: AppColors.textPrimary),
-                    decoration: InputDecoration(
+                    decoration: AppInputDecoration.standard(
                       labelText: 'Jumlah',
-                      labelStyle: TextStyle(color: AppColors.textTertiary),
-                      filled: true,
-                      fillColor: AppColors.card,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: AppColors.cardBorder),
-                      ),
                     ),
                     onChanged: (_) => _recalculate(),
                   ),
@@ -339,17 +333,8 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                           value: _baseZone,
                           isExpanded: true,
                           dropdownColor: AppColors.surface,
-                          decoration: InputDecoration(
+                          decoration: AppInputDecoration.dropdown(
                             labelText: 'Zona asal',
-                            labelStyle:
-                                TextStyle(color: AppColors.textTertiary),
-                            filled: true,
-                            fillColor: AppColors.card,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide:
-                                  BorderSide(color: AppColors.cardBorder),
-                            ),
                           ),
                           items: _timeZones.keys
                               .map((zone) => DropdownMenuItem(
@@ -496,15 +481,8 @@ class _CurrencyDropdown extends StatelessWidget {
     return DropdownButtonFormField<String>(
       value: value,
       dropdownColor: AppColors.surface,
-      decoration: InputDecoration(
+      decoration: AppInputDecoration.dropdown(
         labelText: label,
-        labelStyle: TextStyle(color: AppColors.textTertiary),
-        filled: true,
-        fillColor: AppColors.card,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.cardBorder),
-        ),
       ),
       items: items
           .map((c) => DropdownMenuItem(

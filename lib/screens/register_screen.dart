@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import '../core/theme/app_colors.dart';
+import '../core/theme/input_decorators.dart';
 import '../core/api_client.dart';
 import '../core/constants/api_constants.dart';
 import '../core/services/local_db_service.dart';
 import '../data/auth_repository.dart';
 import '../widgets/glassmorphic_card.dart';
+import '../widgets/premium_alert_overlay.dart';
 
 /// Register screen with client-side validation.
 class RegisterScreen extends StatefulWidget {
@@ -67,9 +69,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         await LocalDbService.savePreference('api_base_url', value);
         ApiClient.updateBaseUrl(value);
         if (mounted) {
-          ScaffoldMessenger.of(
+          PremiumAlertOverlay.showStatus(
             context,
-          ).showSnackBar(const SnackBar(content: Text('API base URL updated')));
+            title: 'API Updated',
+            message: 'Base URL berhasil diperbarui',
+            icon: Icons.check_circle_rounded,
+            accentColor: AppColors.buyGreen,
+          );
         }
       }
     }
@@ -113,17 +119,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) {
         // Navigate back to login and pass credentials to pre-fill
         Navigator.pop(context, {'username': username, 'password': password});
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Akun berhasil dibuat! Silakan login.'),
-            backgroundColor: AppColors.buyGreen.withValues(alpha: 0.9),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 5),
-            showCloseIcon: true,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
+        PremiumAlertOverlay.showStatus(
+          context,
+          title: 'Registrasi Berhasil! ✅',
+          message: 'Akun berhasil dibuat. Silakan login.',
+          icon: Icons.how_to_reg_rounded,
+          accentColor: AppColors.buyGreen,
         );
       }
     } on DioException catch (e) {
@@ -156,7 +157,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: const Text('Create Account'),
+        elevation: 0,
+        title: ShaderMask(
+          shaderCallback: (bounds) =>
+              AppColors.primaryGradient.createShader(bounds),
+          child: const Text(
+            'Create Account',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        iconTheme: const IconThemeData(color: AppColors.textSecondary),
       ),
       body: SafeArea(
         child: Center(
@@ -191,9 +204,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       color: AppColors.textPrimary,
                       fontSize: 14,
                     ),
-                    decoration: InputDecoration(
+                    decoration: AppInputDecoration.standard(
                       labelText: 'Username',
-                      labelStyle: TextStyle(color: AppColors.textTertiary),
                       prefixIcon: const Icon(
                         Icons.person_outline,
                         size: 20,
@@ -210,9 +222,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       color: AppColors.textPrimary,
                       fontSize: 14,
                     ),
-                    decoration: InputDecoration(
+                    decoration: AppInputDecoration.standard(
                       labelText: 'Email',
-                      labelStyle: TextStyle(color: AppColors.textTertiary),
                       prefixIcon: const Icon(
                         Icons.email_outlined,
                         size: 20,
@@ -229,9 +240,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       color: AppColors.textPrimary,
                       fontSize: 14,
                     ),
-                    decoration: InputDecoration(
+                    decoration: AppInputDecoration.standard(
                       labelText: 'Password',
-                      labelStyle: TextStyle(color: AppColors.textTertiary),
                       prefixIcon: const Icon(
                         Icons.lock_outline,
                         size: 20,
@@ -256,9 +266,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       color: AppColors.textPrimary,
                       fontSize: 14,
                     ),
-                    decoration: InputDecoration(
+                    decoration: AppInputDecoration.standard(
                       labelText: 'Confirm Password',
-                      labelStyle: TextStyle(color: AppColors.textTertiary),
                       prefixIcon: const Icon(
                         Icons.lock_outline,
                         size: 20,

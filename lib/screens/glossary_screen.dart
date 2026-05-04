@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
+import '../core/theme/input_decorators.dart';
 import '../widgets/glassmorphic_card.dart';
 
 class GlossaryScreen extends StatefulWidget {
@@ -136,17 +137,8 @@ class _GlossaryScreenState extends State<GlossaryScreen> {
             TextField(
               controller: _searchController,
               style: const TextStyle(color: AppColors.textPrimary),
-              decoration: InputDecoration(
+              decoration: AppInputDecoration.search(
                 hintText: 'Cari istilah seperti PBV, PER, ROE...',
-                hintStyle: TextStyle(color: AppColors.textMuted),
-                prefixIcon: const Icon(Icons.search_rounded,
-                    color: AppColors.textMuted),
-                filled: true,
-                fillColor: AppColors.card,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.cardBorder),
-                ),
               ),
               onChanged: (_) => setState(() {}),
             ),

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
+import '../core/theme/input_decorators.dart';
 import '../core/services/session_service.dart';
 import '../data/feedback_repository.dart';
 import '../core/constants/api_constants.dart';
 import '../widgets/glassmorphic_card.dart';
+import '../widgets/premium_alert_overlay.dart';
 
 class FeedbackScreen extends StatefulWidget {
   const FeedbackScreen({super.key});
@@ -67,8 +69,12 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   Future<void> _submit() async {
     if (_saranController.text.trim().isEmpty ||
         _kesanController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mohon isi saran dan kesan.')),
+      PremiumAlertOverlay.showStatus(
+        context,
+        title: 'Form Belum Lengkap',
+        message: 'Mohon isi saran dan kesan.',
+        icon: Icons.warning_amber_rounded,
+        accentColor: AppColors.holdAmber,
       );
       return;
     }
@@ -86,8 +92,12 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Terima kasih! Feedback tersimpan.')),
+        PremiumAlertOverlay.showStatus(
+          context,
+          title: 'Terima Kasih! ✨',
+          message: 'Feedback Anda telah tersimpan.',
+          icon: Icons.favorite_rounded,
+          accentColor: AppColors.buyGreen,
         );
       }
 
@@ -98,8 +108,12 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       await _loadFeedbacks();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal mengirim feedback: $e')),
+        PremiumAlertOverlay.showStatus(
+          context,
+          title: 'Gagal Mengirim',
+          message: e.toString(),
+          icon: Icons.error_outline_rounded,
+          accentColor: AppColors.sellRed,
         );
         setState(() => _isLoading = false);
       }
@@ -114,8 +128,12 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
       await _loadFeedbacks();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal menghapus feedback: $e')),
+        PremiumAlertOverlay.showStatus(
+          context,
+          title: 'Gagal Menghapus',
+          message: e.toString(),
+          icon: Icons.error_outline_rounded,
+          accentColor: AppColors.sellRed,
         );
       }
     }
@@ -172,15 +190,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                         DropdownButtonFormField<String>(
                           value: _rating,
                           dropdownColor: AppColors.surface,
-                          decoration: InputDecoration(
+                          decoration: AppInputDecoration.dropdown(
                             labelText: 'Skor (1-5)',
-                            labelStyle: TextStyle(color: AppColors.textTertiary),
-                            filled: true,
-                            fillColor: AppColors.card,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: AppColors.cardBorder),
-                            ),
                           ),
                           items: ['1', '2', '3', '4', '5']
                               .map((score) => DropdownMenuItem(
@@ -195,15 +206,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                           controller: _kesanController,
                           maxLines: 3,
                           style: const TextStyle(color: AppColors.textPrimary),
-                          decoration: InputDecoration(
+                          decoration: AppInputDecoration.standard(
                             labelText: 'Kesan',
-                            labelStyle: TextStyle(color: AppColors.textTertiary),
-                            filled: true,
-                            fillColor: AppColors.card,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: AppColors.cardBorder),
-                            ),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -211,15 +215,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                           controller: _saranController,
                           maxLines: 3,
                           style: const TextStyle(color: AppColors.textPrimary),
-                          decoration: InputDecoration(
+                          decoration: AppInputDecoration.standard(
                             labelText: 'Saran',
-                            labelStyle: TextStyle(color: AppColors.textTertiary),
-                            filled: true,
-                            fillColor: AppColors.card,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: AppColors.cardBorder),
-                            ),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -234,6 +231,9 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                             label: Text(_isLoading ? 'Mengirim...' : 'Kirim Feedback'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
                         ),

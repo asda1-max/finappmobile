@@ -313,168 +313,538 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Alert Settings
+            // Alert Settings — Premium
             GlassmorphicCard(
+              borderColor: _alertEnabled
+                  ? AppColors.buyGreen.withValues(alpha: 0.4)
+                  : null,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Header with animated status
                   Row(
                     children: [
-                      const Icon(Icons.notifications_active_rounded,
-                          size: 16, color: AppColors.primary),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'Alert Harga (Notifikasi)',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: _alertEnabled
+                                ? [
+                                    AppColors.buyGreen.withValues(alpha: 0.3),
+                                    AppColors.buyGreen.withValues(alpha: 0.1),
+                                  ]
+                                : [
+                                    AppColors.textMuted.withValues(alpha: 0.15),
+                                    AppColors.textMuted.withValues(alpha: 0.05),
+                                  ],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _alertEnabled
+                                ? AppColors.buyGreen.withValues(alpha: 0.4)
+                                : AppColors.cardBorder,
+                          ),
                         ),
-                      ),
-                      const Spacer(),
-                      Switch(
-                        value: _alertEnabled,
-                        onChanged: (v) => setState(() => _alertEnabled = v),
-                        activeTrackColor: AppColors.primary,
-                      ),
-                    ],
-                  ),
-                  Text(
-                    'Notifikasi saat ticker naik melebihi threshold.',
-                    style: TextStyle(fontSize: 11, color: AppColors.textTertiary),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _alertSearchController,
-                    style: const TextStyle(color: AppColors.textPrimary),
-                    decoration: InputDecoration(
-                      labelText: 'Cari ticker tersimpan',
-                      labelStyle: TextStyle(color: AppColors.textTertiary),
-                      prefixIcon: const Icon(Icons.search_rounded,
-                          size: 18, color: AppColors.textMuted),
-                      filled: true,
-                      fillColor: AppColors.card,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: AppColors.cardBorder),
-                      ),
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 8),
-                  if (filteredTickers.isEmpty)
-                    Text(
-                      'Belum ada ticker tersimpan. Tambahkan dari Dashboard.',
-                      style: TextStyle(
-                          fontSize: 11, color: AppColors.textTertiary),
-                    )
-                  else
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: filteredTickers.map((ticker) {
-                        final selected = ticker == _alertTicker;
-                        return ChoiceChip(
-                          label: Text(ticker),
-                          selected: selected,
-                          onSelected: (_) =>
-                              setState(() => _alertTicker = ticker),
-                          selectedColor:
-                              AppColors.primary.withValues(alpha: 0.2),
-                          backgroundColor: AppColors.card,
-                          labelStyle: TextStyle(
-                            color: selected
-                                ? AppColors.primary
-                                : AppColors.textSecondary,
-                            fontSize: 11,
-                            fontWeight:
-                                selected ? FontWeight.w700 : FontWeight.w500,
-                          ),
-                          side: BorderSide(color: AppColors.cardBorder),
-                        );
-                      }).toList(),
-                    ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _alertThresholdController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true),
-                          style:
-                              const TextStyle(color: AppColors.textPrimary),
-                          decoration: InputDecoration(
-                            labelText: 'Threshold naik (%)',
-                            labelStyle:
-                                TextStyle(color: AppColors.textTertiary),
-                            filled: true,
-                            fillColor: AppColors.card,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide:
-                                  BorderSide(color: AppColors.cardBorder),
-                            ),
-                          ),
+                        child: Icon(
+                          _alertEnabled
+                              ? Icons.notifications_active_rounded
+                              : Icons.notifications_off_rounded,
+                          size: 16,
+                          color: _alertEnabled
+                              ? AppColors.buyGreen
+                              : AppColors.textMuted,
                         ),
                       ),
                       const SizedBox(width: 10),
-                      SizedBox(
-                        height: 46,
-                        child: ElevatedButton.icon(
-                          onPressed: _saveAlertPrefs,
-                          icon: const Icon(Icons.save_rounded, size: 16),
-                          label: const Text('Simpan'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                          ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Alert Harga',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: _alertEnabled
+                                        ? AppColors.buyGreen
+                                        : AppColors.textMuted,
+                                    boxShadow: _alertEnabled
+                                        ? [
+                                            BoxShadow(
+                                              color: AppColors.buyGreen
+                                                  .withValues(alpha: 0.5),
+                                              blurRadius: 4,
+                                              spreadRadius: 1,
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _alertEnabled ? 'AKTIF' : 'NONAKTIF',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: _alertEnabled
+                                        ? AppColors.buyGreen
+                                        : AppColors.textMuted,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: _alertEnabled,
+                        onChanged: (v) => setState(() => _alertEnabled = v),
+                        activeTrackColor: AppColors.buyGreen,
+                        thumbColor: WidgetStateProperty.resolveWith(
+                          (states) => states.contains(WidgetState.selected)
+                              ? Colors.white
+                              : AppColors.textMuted,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 46,
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        await NotificationService.showTestNotification();
-                        setState(() => _statusMsg = 'Test notifikasi terkirim');
-                      },
-                      icon: const Icon(Icons.notifications_rounded, size: 16),
-                      label: const Text('Test Notifikasi Android'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: BorderSide(
-                          color: AppColors.primary.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Notifikasi real-time saat ticker naik melebihi threshold.',
+                    style: TextStyle(fontSize: 11, color: AppColors.textTertiary),
+                  ),
+
+                  // Animated expansion content
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    child: _alertEnabled
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 14),
+                              // Ticker selection header
+                              Row(
+                                children: [
+                                  Icon(Icons.track_changes_rounded,
+                                      size: 12,
+                                      color: AppColors.primary),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'PILIH TICKER',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.primary,
+                                      letterSpacing: 1.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _alertSearchController,
+                                style: const TextStyle(
+                                    color: AppColors.textPrimary, fontSize: 13),
+                                decoration: InputDecoration(
+                                  hintText: 'Cari ticker tersimpan...',
+                                  hintStyle:
+                                      TextStyle(color: AppColors.textMuted),
+                                  prefixIcon: const Icon(Icons.search_rounded,
+                                      size: 18, color: AppColors.textMuted),
+                                  filled: true,
+                                  fillColor: AppColors.surface,
+                                  contentPadding:
+                                      const EdgeInsets.symmetric(horizontal: 12),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide:
+                                        BorderSide(color: AppColors.cardBorder),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide:
+                                        BorderSide(color: AppColors.cardBorder),
+                                  ),
+                                ),
+                                onChanged: (_) => setState(() {}),
+                              ),
+                              const SizedBox(height: 10),
+                              if (filteredTickers.isEmpty)
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surface,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border:
+                                        Border.all(color: AppColors.cardBorder),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.info_outline_rounded,
+                                          size: 14,
+                                          color: AppColors.textTertiary),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Belum ada ticker. Tambahkan dari Dashboard.',
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              color: AppColors.textTertiary),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              else
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: filteredTickers.map((ticker) {
+                                    final selected = ticker == _alertTicker;
+                                    return AnimatedContainer(
+                                      duration:
+                                          const Duration(milliseconds: 200),
+                                      child: ChoiceChip(
+                                        label: Text(ticker),
+                                        selected: selected,
+                                        onSelected: (_) => setState(
+                                            () => _alertTicker = ticker),
+                                        selectedColor: AppColors.primary
+                                            .withValues(alpha: 0.2),
+                                        backgroundColor: AppColors.surface,
+                                        labelStyle: TextStyle(
+                                          color: selected
+                                              ? AppColors.primary
+                                              : AppColors.textSecondary,
+                                          fontSize: 11,
+                                          fontWeight: selected
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
+                                        ),
+                                        side: BorderSide(
+                                          color: selected
+                                              ? AppColors.primary
+                                                  .withValues(alpha: 0.5)
+                                              : AppColors.cardBorder,
+                                        ),
+                                        avatar: selected
+                                            ? Icon(Icons.check_circle_rounded,
+                                                size: 14,
+                                                color: AppColors.primary)
+                                            : null,
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              const SizedBox(height: 14),
+                              // Threshold section
+                              Row(
+                                children: [
+                                  Icon(Icons.tune_rounded,
+                                      size: 12,
+                                      color: AppColors.primary),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'THRESHOLD',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.primary,
+                                      letterSpacing: 1.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final isNarrow = constraints.maxWidth < 360;
+                                  final thresholdField = TextField(
+                                    controller: _alertThresholdController,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                            decimal: true),
+                                    style: const TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontSize: 13),
+                                    decoration: InputDecoration(
+                                      hintText: 'e.g. 5',
+                                      hintStyle:
+                                          TextStyle(color: AppColors.textMuted),
+                                      suffixText: '%',
+                                      suffixStyle: TextStyle(
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.w700),
+                                      filled: true,
+                                      fillColor: AppColors.surface,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 12),
+                                      border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                            color: AppColors.cardBorder),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                            color: AppColors.cardBorder),
+                                      ),
+                                    ),
+                                  );
+
+                                  final saveButton = SizedBox(
+                                    height: 46,
+                                    child: ElevatedButton.icon(
+                                      onPressed: _saveAlertPrefs,
+                                      icon: const Icon(Icons.save_rounded,
+                                          size: 16),
+                                      label: const Text('Simpan'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.primary,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+
+                                  if (isNarrow) {
+                                    return Column(
+                                      children: [
+                                        thresholdField,
+                                        const SizedBox(height: 10),
+                                        SizedBox(
+                                            width: double.infinity,
+                                            child: saveButton),
+                                      ],
+                                    );
+                                  }
+
+                                  return Row(
+                                    children: [
+                                      Expanded(child: thresholdField),
+                                      const SizedBox(width: 10),
+                                      saveButton,
+                                    ],
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              // Test button
+                              SizedBox(
+                                width: double.infinity,
+                                height: 46,
+                                child: OutlinedButton.icon(
+                                  onPressed: () async {
+                                    await NotificationService
+                                        .showTestNotification();
+                                    setState(() => _statusMsg =
+                                        'Test notifikasi terkirim ✓');
+                                  },
+                                  icon: const Icon(
+                                      Icons.cell_tower_rounded,
+                                      size: 16),
+                                  label:
+                                      const Text('Test Notifikasi'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.primary,
+                                    side: BorderSide(
+                                      color: AppColors.primary
+                                          .withValues(alpha: 0.4),
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Summary badge
+                              if (_alertTicker.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        AppColors.buyGreen
+                                            .withValues(alpha: 0.08),
+                                        AppColors.surface,
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: AppColors.buyGreen
+                                          .withValues(alpha: 0.2),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.radar_rounded,
+                                          size: 14,
+                                          color: AppColors.buyGreen),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text.rich(
+                                          TextSpan(
+                                            children: [
+                                              TextSpan(
+                                                text: 'Monitoring ',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color:
+                                                      AppColors.textTertiary,
+                                                ),
+                                              ),
+                                              TextSpan(
+                                                text: _alertTicker,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: AppColors.primary,
+                                                ),
+                                              ),
+                                              TextSpan(
+                                                text:
+                                                    ' — alert jika ≥${_alertThresholdController.text}%',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color:
+                                                      AppColors.textTertiary,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          )
+                        : const SizedBox.shrink(),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
-            // Daily Reminder Settings
+            // Daily Reminder Settings — Premium
             GlassmorphicCard(
+              borderColor: _reminderEnabled
+                  ? AppColors.primary.withValues(alpha: 0.4)
+                  : null,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.alarm_rounded,
-                          size: 16, color: AppColors.primary),
-                      const SizedBox(width: 6),
-                      const Text(
-                        'Pengingat Harian',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: _reminderEnabled
+                                ? [
+                                    AppColors.primary.withValues(alpha: 0.3),
+                                    AppColors.primary.withValues(alpha: 0.1),
+                                  ]
+                                : [
+                                    AppColors.textMuted.withValues(alpha: 0.15),
+                                    AppColors.textMuted.withValues(alpha: 0.05),
+                                  ],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _reminderEnabled
+                                ? AppColors.primary.withValues(alpha: 0.4)
+                                : AppColors.cardBorder,
+                          ),
+                        ),
+                        child: Icon(
+                          _reminderEnabled
+                              ? Icons.alarm_on_rounded
+                              : Icons.alarm_off_rounded,
+                          size: 16,
+                          color: _reminderEnabled
+                              ? AppColors.primary
+                              : AppColors.textMuted,
                         ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Pengingat Harian',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: _reminderEnabled
+                                        ? AppColors.primary
+                                        : AppColors.textMuted,
+                                    boxShadow: _reminderEnabled
+                                        ? [
+                                            BoxShadow(
+                                              color: AppColors.primary
+                                                  .withValues(alpha: 0.5),
+                                              blurRadius: 4,
+                                              spreadRadius: 1,
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _reminderEnabled
+                                      ? 'AKTIF — ${_reminderTime.format(context)}'
+                                      : 'NONAKTIF',
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w800,
+                                    color: _reminderEnabled
+                                        ? AppColors.primary
+                                        : AppColors.textMuted,
+                                    letterSpacing: 1.2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                       Switch(
                         value: _reminderEnabled,
                         onChanged: (v) async {
@@ -482,47 +852,115 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           await _saveReminderPrefs();
                         },
                         activeTrackColor: AppColors.primary,
+                        thumbColor: WidgetStateProperty.resolveWith(
+                          (states) => states.contains(WidgetState.selected)
+                              ? Colors.white
+                              : AppColors.textMuted,
+                        ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 6),
                   Text(
-                    'Notifikasi pengingat harian. Contoh: cek jam 09:41.',
+                    'Pengingat harian untuk cek watchlist dan peluang baru.',
                     style: TextStyle(fontSize: 11, color: AppColors.textTertiary),
                   ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _pickReminderTime,
-                          icon: const Icon(Icons.schedule_rounded, size: 16),
-                          label: Text(_reminderTime.format(context)),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            side: BorderSide(
-                              color: AppColors.primary.withValues(alpha: 0.6),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        height: 46,
-                        child: ElevatedButton.icon(
-                          onPressed: _saveReminderPrefs,
-                          icon: const Icon(Icons.save_rounded, size: 16),
-                          label: const Text('Simpan'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    child: _reminderEnabled
+                        ? Column(
+                            children: [
+                              const SizedBox(height: 14),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final isNarrow = constraints.maxWidth < 360;
+
+                                  final timePicker = GestureDetector(
+                                    onTap: _pickReminderTime,
+                                    child: Container(
+                                      height: 52,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 14),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surface,
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: AppColors.primary
+                                              .withValues(alpha: 0.3),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.schedule_rounded,
+                                              size: 18,
+                                              color: AppColors.primary),
+                                          const SizedBox(width: 10),
+                                          Text(
+                                            _reminderTime.format(context),
+                                            style: const TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Icon(Icons.edit_rounded,
+                                              size: 14,
+                                              color: AppColors.textMuted),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+
+                                  final saveButton = SizedBox(
+                                    height: 52,
+                                    child: ElevatedButton.icon(
+                                      onPressed: _saveReminderPrefs,
+                                      icon: const Icon(Icons.save_rounded,
+                                          size: 16),
+                                      label: const Text('Simpan'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.primary,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+
+                                  if (isNarrow) {
+                                    return Column(
+                                      children: [
+                                        timePicker,
+                                        const SizedBox(height: 10),
+                                        SizedBox(
+                                            width: double.infinity,
+                                            child: saveButton),
+                                      ],
+                                    );
+                                  }
+
+                                  return Row(
+                                    children: [
+                                      Expanded(child: timePicker),
+                                      const SizedBox(width: 10),
+                                      saveButton,
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                          )
+                        : const SizedBox.shrink(),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
+
 
             _WeightColumn(
               title: 'Mode: use_cagr',

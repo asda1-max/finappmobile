@@ -47,9 +47,17 @@ class LogoutScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.logout_rounded,
-                      color: AppColors.sellRed, size: 36),
-                  const SizedBox(height: 8),
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: AppColors.sellRed.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(Icons.logout_rounded,
+                        color: AppColors.sellRed, size: 28),
+                  ),
+                  const SizedBox(height: 12),
                   const Text(
                     'Logout',
                     style: TextStyle(

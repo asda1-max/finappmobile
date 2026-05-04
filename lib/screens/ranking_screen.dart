@@ -167,19 +167,28 @@ class _RankingScreenState extends ConsumerState<RankingScreen>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.leaderboard_rounded,
-                              size: 48, color: AppColors.textMuted),
-                          const SizedBox(height: 12),
-                          Text(
-                            'No stocks to rank',
+                          Container(
+                            width: 72,
+                            height: 72,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Icon(Icons.leaderboard_rounded,
+                                size: 36, color: AppColors.primary.withValues(alpha: 0.5)),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Belum ada saham untuk di-rank',
                             style: TextStyle(
                               fontSize: 14,
+                              fontWeight: FontWeight.w600,
                               color: AppColors.textSecondary,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Add tickers from the Dashboard first',
+                            'Tambahkan ticker dari Dashboard terlebih dahulu',
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.textMuted,

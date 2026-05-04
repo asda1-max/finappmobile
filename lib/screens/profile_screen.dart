@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../core/theme/app_colors.dart';
+import '../core/theme/input_decorators.dart';
 import '../core/services/session_service.dart';
 import '../core/constants/api_constants.dart';
 import '../data/auth_repository.dart';
 import '../data/stock_repository.dart';
 import '../widgets/glassmorphic_card.dart';
+import '../widgets/premium_alert_overlay.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -96,14 +98,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Recommended settings applied successfully!')),
+        PremiumAlertOverlay.showStatus(
+          context,
+          title: 'Konfigurasi Diterapkan',
+          message: 'Rekomendasi hybrid berhasil diaplikasikan',
+          icon: Icons.check_circle_rounded,
+          accentColor: AppColors.buyGreen,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to apply settings: $e')),
+        PremiumAlertOverlay.showStatus(
+          context,
+          title: 'Gagal',
+          message: 'Tidak bisa menerapkan konfigurasi: $e',
+          icon: Icons.error_outline_rounded,
+          accentColor: AppColors.sellRed,
         );
       }
     } finally {
@@ -140,15 +150,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile picture updated successfully')),
+        PremiumAlertOverlay.showStatus(
+          context,
+          title: 'Foto Profil Diperbarui',
+          message: 'Upload berhasil!',
+          icon: Icons.camera_alt_rounded,
+          accentColor: AppColors.buyGreen,
         );
       }
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to upload image: $e')),
+        PremiumAlertOverlay.showStatus(
+          context,
+          title: 'Upload Gagal',
+          message: e.toString(),
+          icon: Icons.error_outline_rounded,
+          accentColor: AppColors.sellRed,
         );
       }
     }
@@ -201,8 +219,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await _fetchRecommendation();
         
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile updated successfully')),
+          PremiumAlertOverlay.showStatus(
+            context,
+            title: 'Profil Diperbarui',
+            message: 'Perubahan berhasil disimpan',
+            icon: Icons.check_circle_rounded,
+            accentColor: AppColors.buyGreen,
           );
         }
       } catch (e) {
@@ -211,11 +233,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (errMsg.contains('400')) {
             errMsg = 'Username or email may already be taken.';
           }
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to update profile: $errMsg'),
-              backgroundColor: AppColors.sellRed,
-            ),
+          PremiumAlertOverlay.showStatus(
+            context,
+            title: 'Update Gagal',
+            message: errMsg,
+            icon: Icons.error_outline_rounded,
+            accentColor: AppColors.sellRed,
           );
         }
       } finally {
@@ -232,7 +255,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(color: AppColors.primary),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Memuat profil...',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              )
             : ListView(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
                 children: [
@@ -643,25 +681,9 @@ class _EditProfileModalState extends State<_EditProfileModal> {
       controller: controller,
       obscureText: obscure,
       style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
-      decoration: InputDecoration(
+      decoration: AppInputDecoration.standard(
         labelText: label,
-        labelStyle: TextStyle(color: AppColors.textTertiary, fontSize: 13),
         prefixIcon: Icon(icon, color: AppColors.textTertiary, size: 20),
-        filled: true,
-        fillColor: AppColors.card,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.cardBorder),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.cardBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
     );
   }

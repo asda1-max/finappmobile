@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import '../core/theme/app_colors.dart';
+import '../core/theme/input_decorators.dart';
 import '../core/api_client.dart';
 import '../core/constants/api_constants.dart';
 import '../core/services/session_service.dart';
@@ -8,6 +9,7 @@ import '../core/services/biometric_service.dart';
 import '../core/services/local_db_service.dart';
 import '../data/auth_repository.dart';
 import '../widgets/glassmorphic_card.dart';
+import '../widgets/premium_alert_overlay.dart';
 import 'register_screen.dart';
 
 /// Login screen with encrypted auth + biometric support.
@@ -180,9 +182,13 @@ class _LoginScreenState extends State<LoginScreen> {
         await LocalDbService.savePreference('api_base_url', value);
         ApiClient.updateBaseUrl(value);
         if (mounted) {
-          ScaffoldMessenger.of(
+          PremiumAlertOverlay.showStatus(
             context,
-          ).showSnackBar(const SnackBar(content: Text('API base URL updated')));
+            title: 'API Updated',
+            message: 'Base URL berhasil diperbarui',
+            icon: Icons.check_circle_rounded,
+            accentColor: AppColors.buyGreen,
+          );
         }
       }
     }
@@ -258,9 +264,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: AppColors.textPrimary,
                           fontSize: 14,
                         ),
-                        decoration: InputDecoration(
+                        decoration: AppInputDecoration.standard(
                           labelText: 'Username',
-                          labelStyle: TextStyle(color: AppColors.textTertiary),
                           prefixIcon: const Icon(
                             Icons.person_outline,
                             size: 20,
@@ -278,9 +283,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: AppColors.textPrimary,
                           fontSize: 14,
                         ),
-                        decoration: InputDecoration(
+                        decoration: AppInputDecoration.standard(
                           labelText: 'Password',
-                          labelStyle: TextStyle(color: AppColors.textTertiary),
                           prefixIcon: const Icon(
                             Icons.lock_outline,
                             size: 20,
