@@ -413,20 +413,6 @@ class _LetItRideScreenState extends State<LetItRideScreen> with SingleTickerProv
                   ),
                 ),
               ),
-
-            Positioned(
-              bottom: 20,
-              left: 20,
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_rounded),
-                color: AppColors.textSecondary,
-                onPressed: () {
-                  if (Navigator.canPop(context)) {
-                    Navigator.pop(context);
-                  }
-                },
-              ),
-            ),
           ],
         ),
       ),

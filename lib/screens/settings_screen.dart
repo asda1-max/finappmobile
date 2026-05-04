@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/theme/app_colors.dart';
+import '../core/services/session_service.dart';
+import '../data/auth_repository.dart';
 import '../core/services/local_db_service.dart';
 import '../core/services/notification_service.dart';
 import '../data/stock_repository.dart';
@@ -17,8 +19,12 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _repo = StockRepository();
+  final _authRepo = AuthRepository();
   bool _loading = true;
   String? _statusMsg;
+  Map<String, dynamic>? _profilePreset;
+  String? _portfolioGoals;
+  String? _minat;
 
   final TextEditingController _alertThresholdController =
       TextEditingController();
@@ -49,6 +55,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     super.initState();
     _loadConfig();
     _loadAlertPrefs();
+    _loadProfilePreset();
+  }
+  
+  Future<void> _loadProfilePreset() async {
+    final goals = await SessionService.getPortfolioGoals();
+    final minat = await SessionService.getMinat();
+    if (goals != null || minat != null) {
+      setState(() {
+        _portfolioGoals = goals;
+        _minat = minat;
+      });
+      try {
+        final preset = await _authRepo.getHybridPreset(goals ?? '', minat ?? '');
+        setState(() {
+          _profilePreset = preset;
+        });
+      } catch (e) {
+        setState(() => _statusMsg = 'Preset error: $e');
+      }
+    }
+  }
+
+  void _applyProfilePreset() {
+    if (_profilePreset == null) return;
+    final useCagr = _profilePreset!['use_cagr'];
+    final noCagr = _profilePreset!['no_cagr'];
+    
+    _useCagrWeights.setAll(0, List<double>.from(useCagr['weights'].map((x) => x.toDouble())));
+    _useCagrRec = useCagr['recommended'].toDouble();
+    _useCagrBuy = useCagr['buy'].toDouble();
+    _useCagrRisk = useCagr['risk'].toDouble();
+    
+    _noCagrWeights.setAll(0, List<double>.from(noCagr['weights'].map((x) => x.toDouble())));
+    _noCagrRec = noCagr['recommended'].toDouble();
+    _noCagrBuy = noCagr['buy'].toDouble();
+    _noCagrRisk = noCagr['risk'].toDouble();
+    
+    setState(() => _statusMsg = 'Profile Preset applied');
   }
 
   @override
@@ -421,6 +465,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   color: AppColors.sellRed,
                   onTap: () => _applyPreset('growth'),
                 ),
+                if (_profilePreset != null)
+                  _PresetChip(
+                    label: '✨ Profile Preset',
+                    color: AppColors.primary,
+                    onTap: _applyProfilePreset,
+                  ),
               ],
             ),
             const SizedBox(height: 16),

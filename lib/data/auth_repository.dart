@@ -50,4 +50,55 @@ class AuthRepository {
       token: token,
     );
   }
+
+  /// Update user profile.
+  Future<UserModel> updateProfile(
+    String token, {
+    String? username,
+    String? email,
+    String? password,
+    String? portfolioGoals,
+    String? minat,
+  }) async {
+    final response = await _dio.put(
+      ApiConstants.authMe,
+      queryParameters: {'token': token},
+      data: {
+        if (username != null) 'username': username,
+        if (email != null) 'email': email,
+        if (password != null) 'password': password,
+        if (portfolioGoals != null) 'portfolio_goals': portfolioGoals,
+        if (minat != null) 'minat': minat,
+      },
+    );
+    return UserModel.fromJson(
+      response.data as Map<String, dynamic>,
+      token: token,
+    );
+  }
+
+  /// Upload profile picture.
+  Future<String> uploadProfilePicture(String token, String filePath) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(filePath),
+    });
+    final response = await _dio.post(
+      ApiConstants.authProfilePicture,
+      queryParameters: {'token': token},
+      data: formData,
+    );
+    return response.data['profile_pic'] as String;
+  }
+
+  /// Get Hybrid preset recommendations.
+  Future<Map<String, dynamic>> getHybridPreset(String goals, String minat) async {
+    final response = await _dio.get(
+      '/hybrid-preset',
+      queryParameters: {
+        'goals': goals,
+        'minat': minat,
+      },
+    );
+    return response.data as Map<String, dynamic>;
+  }
 }

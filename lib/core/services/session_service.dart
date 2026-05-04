@@ -10,6 +10,9 @@ class SessionService {
   static const _keyToken = 'auth_token';
   static const _keyUsername = 'auth_username';
   static const _keyEmail = 'auth_email';
+  static const _keyProfilePic = 'auth_profile_pic';
+  static const _keyPortfolioGoals = 'auth_portfolio_goals';
+  static const _keyMinat = 'auth_minat';
   static const _keyBiometricEnabled = 'biometric_enabled';
   static const _keyLoggedOut = 'logged_out';
 
@@ -18,10 +21,22 @@ class SessionService {
     required String token,
     required String username,
     required String email,
+    String? profilePic,
+    String? portfolioGoals,
+    String? minat,
   }) async {
     await _storage.write(key: _keyToken, value: token);
     await _storage.write(key: _keyUsername, value: username);
     await _storage.write(key: _keyEmail, value: email);
+    if (profilePic != null) {
+      await _storage.write(key: _keyProfilePic, value: profilePic);
+    }
+    if (portfolioGoals != null) {
+      await _storage.write(key: _keyPortfolioGoals, value: portfolioGoals);
+    }
+    if (minat != null) {
+      await _storage.write(key: _keyMinat, value: minat);
+    }
     // Clear the logged-out flag since we're actively logged in now.
     await _storage.delete(key: _keyLoggedOut);
   }
@@ -40,6 +55,23 @@ class SessionService {
   static Future<String?> getEmail() async {
     return _storage.read(key: _keyEmail);
   }
+
+  /// Get stored profile picture.
+  static Future<String?> getProfilePic() async {
+    return _storage.read(key: _keyProfilePic);
+  }
+
+  /// Get stored portfolio goals.
+  static Future<String?> getPortfolioGoals() async {
+    return _storage.read(key: _keyPortfolioGoals);
+  }
+
+  /// Get stored minat.
+  static Future<String?> getMinat() async {
+    return _storage.read(key: _keyMinat);
+  }
+
+
 
   /// Check if user is actively logged in (not soft-logged-out).
   static Future<bool> isLoggedIn() async {
@@ -69,6 +101,9 @@ class SessionService {
     await _storage.delete(key: _keyToken);
     await _storage.delete(key: _keyUsername);
     await _storage.delete(key: _keyEmail);
+    await _storage.delete(key: _keyProfilePic);
+    await _storage.delete(key: _keyPortfolioGoals);
+    await _storage.delete(key: _keyMinat);
     await _storage.delete(key: _keyLoggedOut);
   }
 

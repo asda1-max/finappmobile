@@ -33,6 +33,11 @@ class ApiConstants {
   static const String authRegister = '/auth/register';
   static const String authLogin = '/auth/login';
   static const String authMe = '/auth/me';
+  static const String authProfilePicture = '/auth/profile-picture';
+
+  // Feedback endpoints
+  static const String feedbacks = '/feedbacks';
+  static String deleteFeedback(String id) => '/feedbacks/$id';
 
   // AI endpoints
   static const String aiStatus = '/ai/status';

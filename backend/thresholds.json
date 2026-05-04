@@ -23,36 +23,36 @@
   },
   "hybrid": {
     "use_cagr": {
-      "recommended": 0.52,
-      "buy": 0.44,
-      "risk": 0.34
+      "recommended": 0.55,
+      "buy": 0.48,
+      "risk": 0.4
     },
     "no_cagr": {
-      "recommended": 0.655,
-      "buy": 0.555,
-      "risk": 0.455
+      "recommended": 0.65,
+      "buy": 0.58,
+      "risk": 0.5
     }
   },
   "hybrid_weights": {
     "use_cagr": [
+      0.15,
+      0.05,
+      0.2,
       0.2,
       0.1,
-      0.05,
-      0.1,
-      0.1,
       0.1,
       0.15,
-      0.2
+      0.05
     ],
     "no_cagr": [
+      0.2,
+      0.0,
       0.25,
-      0.0,
-      0.05,
-      0.15,
-      0.15,
-      0.15,
-      0.0,
-      0.25
+      0.25,
+      0.1,
+      0.1,
+      0.1,
+      0.0
     ]
   },
   "meta": {
@@ -61,6 +61,6 @@
     "target_return_pct": 8.0,
     "lookback_period": "5y",
     "min_samples": 120,
-    "hybrid_config_updated_at": "2026-05-02T16:45:40.836630+00:00"
+    "hybrid_config_updated_at": "2026-05-04T11:31:55.914690+00:00"
   }
 }
