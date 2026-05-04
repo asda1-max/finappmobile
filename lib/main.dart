@@ -24,6 +24,7 @@ import 'screens/ai_chat_screen.dart';
 import 'screens/nearby_screen.dart';
 import 'screens/slot_machine_screen.dart';
 import 'screens/let_it_ride_screen.dart';
+import 'screens/glossary_screen.dart';
 // ── Providers ──
 
 final stockRepositoryProvider = Provider<StockRepository>((ref) {
@@ -221,31 +222,37 @@ class _AppShellState extends ConsumerState<AppShell> {
                 onTap: () => Navigator.pop(ctx, 6),
               ),
               _MoreActionTile(
+                icon: Icons.menu_book_rounded,
+                label: 'Glossary',
+                index: 7,
+                onTap: () => Navigator.pop(ctx, 7),
+              ),
+              _MoreActionTile(
                 icon: Icons.map_rounded,
                 label: 'Lokasi Terdekat',
-                index: 8,
-                onTap: () => Navigator.pop(ctx, 8),
+                index: 9,
+                onTap: () => Navigator.pop(ctx, 9),
               ),
               _MoreActionTile(
                 icon: Icons.casino_rounded,
                 label: 'Slot Machine',
-                index: 9,
+                index: 10,
                 accent: const Color(0xFFFFD700),
-                onTap: () => Navigator.pop(ctx, 9),
+                onTap: () => Navigator.pop(ctx, 10),
               ),
               _MoreActionTile(
                 icon: Icons.rocket_launch_rounded,
                 label: 'Let It Ride',
-                index: 10,
+                index: 11,
                 accent: AppColors.buyGreen,
-                onTap: () => Navigator.pop(ctx, 10),
+                onTap: () => Navigator.pop(ctx, 11),
               ),
               _MoreActionTile(
                 icon: Icons.logout_rounded,
                 label: 'Logout',
-                index: 7,
+                index: 8,
                 accent: AppColors.sellRed,
-                onTap: () => Navigator.pop(ctx, 7),
+                onTap: () => Navigator.pop(ctx, 8),
               ),
               const SizedBox(height: 12),
             ],
@@ -275,6 +282,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       const ProfileScreen(),
       const FeedbackScreen(),
       const SettingsScreen(),
+      const GlossaryScreen(),
       LogoutScreen(onLogout: widget.onLogout),
       const NearbyScreen(),
       const SlotMachineScreen(),
