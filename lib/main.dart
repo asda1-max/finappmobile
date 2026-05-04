@@ -180,6 +180,19 @@ class AppShell extends ConsumerStatefulWidget {
 class _AppShellState extends ConsumerState<AppShell> {
   int _currentIndex = 0;
   int _navIndex = 0;
+    final GlobalKey<AiChatScreenState> _aiChatKey =
+      GlobalKey<AiChatScreenState>();
+
+  void _handleTabChange(int newIndex) {
+    setState(() {
+      _currentIndex = newIndex;
+      _navIndex = newIndex;
+    });
+
+    if (newIndex == 1) {
+      _aiChatKey.currentState?.refreshAiStatus();
+    }
+  }
 
   Future<void> _openMoreMenu() async {
     final selected = await showModalBottomSheet<int>(
@@ -276,7 +289,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     final screens = [
       const DashboardScreen(),
-      const AiChatScreen(),
+      AiChatScreen(key: _aiChatKey),
       RankingScreen(stocks: stocks),
       const UtilitiesScreen(),
       const ProfileScreen(),
@@ -308,10 +321,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               _openMoreMenu();
               return;
             }
-            setState(() {
-              _currentIndex = i;
-              _navIndex = i;
-            });
+            _handleTabChange(i);
           },
           indicatorColor: AppColors.primary.withValues(alpha: 0.15),
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -587,8 +597,58 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  Widget _buildMiniTerminal({
+    required String title,
+    required List<String> lines,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.terminal_rounded,
+                  size: 14, color: AppColors.primary),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...lines.map(
+            (line) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                line,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final tickers = ref.watch(tickerListProvider);
     ref.listen<AsyncValue<List<StockData>>>(stockDataProvider, (
       previous,
       next,
@@ -798,6 +858,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
 
+              if (stocksAsync.isLoading)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
+                    child: _buildMiniTerminal(
+                      title: 'Market Desk Debug',
+                      lines: [
+                        '> status: fetching portfolio data',
+                        '> endpoint: /stocks',
+                        '> mengambil data: ${tickers.isEmpty ? '-' : (tickers.length == 1 ? tickers.first.toLowerCase() : tickers.map((t) => t.toLowerCase()).join(', '))}',
+                        '> time: ${TimeOfDay.now().format(context)}',
+                        '> note: waiting for response...',
+                      ],
+                    ),
+                  ),
+                ),
+
               // Stock Cards
               stocksAsync.when(
                 data: (stocks) {
@@ -896,7 +973,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Connection Error',
+                            'You are offline',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,

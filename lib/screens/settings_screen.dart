@@ -33,6 +33,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _alertTicker = '';
   double _alertThreshold = 5.0;
   List<String> _alertCandidates = [];
+  bool _reminderEnabled = false;
+  TimeOfDay _reminderTime = const TimeOfDay(hour: 9, minute: 0);
 
   // use_cagr weights
   final _useCagrWeights = List<double>.filled(8, 0.0);
@@ -55,6 +57,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     super.initState();
     _loadConfig();
     _loadAlertPrefs();
+    _loadReminderPrefs();
     _loadProfilePreset();
   }
   
@@ -117,6 +120,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _alertThreshold.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
   }
 
+  void _loadReminderPrefs() {
+    _reminderEnabled =
+        LocalDbService.getPreference<bool>('reminder_enabled') ?? false;
+    final hourRaw = LocalDbService.getPreference<num>('reminder_hour') ?? 9;
+    final minuteRaw =
+        LocalDbService.getPreference<num>('reminder_minute') ?? 0;
+    final hour = hourRaw.toInt().clamp(0, 23).toInt();
+    final minute = minuteRaw.toInt().clamp(0, 59).toInt();
+    _reminderTime = TimeOfDay(hour: hour, minute: minute);
+    if (_reminderEnabled) {
+      NotificationService.scheduleDailyReminder(
+        hour: _reminderTime.hour,
+        minute: _reminderTime.minute,
+      );
+    }
+  }
+
   void _saveAlertPrefs() {
     final parsed = double.tryParse(_alertThresholdController.text);
     if (parsed == null || parsed <= 0) {
@@ -128,6 +148,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     LocalDbService.savePreference('alert_ticker', _alertTicker);
     LocalDbService.savePreference('alert_threshold', _alertThreshold);
     setState(() => _statusMsg = 'Alert harga tersimpan ✓');
+  }
+
+  Future<void> _saveReminderPrefs() async {
+    await LocalDbService.savePreference('reminder_enabled', _reminderEnabled);
+    await LocalDbService.savePreference('reminder_hour', _reminderTime.hour);
+    await LocalDbService.savePreference(
+        'reminder_minute', _reminderTime.minute);
+
+    if (_reminderEnabled) {
+      await NotificationService.scheduleDailyReminder(
+        hour: _reminderTime.hour,
+        minute: _reminderTime.minute,
+      );
+      setState(() =>
+          _statusMsg = 'Pengingat diatur ${_reminderTime.format(context)} ✓');
+    } else {
+      await NotificationService.cancelDailyReminder();
+      setState(() => _statusMsg = 'Pengingat dimatikan');
+    }
+  }
+
+  Future<void> _pickReminderTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _reminderTime,
+    );
+    if (picked == null) return;
+    setState(() => _reminderTime = picked);
   }
 
   Future<void> _loadConfig() async {
@@ -402,6 +450,74 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                     ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Daily Reminder Settings
+            GlassmorphicCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.alarm_rounded,
+                          size: 16, color: AppColors.primary),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Pengingat Harian',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const Spacer(),
+                      Switch(
+                        value: _reminderEnabled,
+                        onChanged: (v) async {
+                          setState(() => _reminderEnabled = v);
+                          await _saveReminderPrefs();
+                        },
+                        activeTrackColor: AppColors.primary,
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Notifikasi pengingat harian. Contoh: cek jam 09:41.',
+                    style: TextStyle(fontSize: 11, color: AppColors.textTertiary),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _pickReminderTime,
+                          icon: const Icon(Icons.schedule_rounded, size: 16),
+                          label: Text(_reminderTime.format(context)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: BorderSide(
+                              color: AppColors.primary.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        height: 46,
+                        child: ElevatedButton.icon(
+                          onPressed: _saveReminderPrefs,
+                          icon: const Icon(Icons.save_rounded, size: 16),
+                          label: const Text('Simpan'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

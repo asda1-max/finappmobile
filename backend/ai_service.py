@@ -15,7 +15,11 @@ import httpx
 
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-4-31b-it")
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/owl_alpha")
+OPENROUTER_FALLBACK_MODELS = os.environ.get(
+    "OPENROUTER_FALLBACK_MODELS",
+    "google/gemma-2-9b-it,google/gemma-2-2b-it,mistralai/mistral-7b-instruct,meta-llama/llama-3.1-8b-instruct,qwen/qwen2.5-7b-instruct",
+)
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # ── Timeouts ──
@@ -46,7 +50,11 @@ async def chat_completion(
             "lalu restart server."
         )
 
-    effective_model = model or OPENROUTER_MODEL
+    fallback_models = [m.strip() for m in OPENROUTER_FALLBACK_MODELS.split(",") if m.strip()]
+    model_candidates = [model or OPENROUTER_MODEL]
+    for m in fallback_models:
+        if m not in model_candidates:
+            model_candidates.append(m)
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -55,51 +63,58 @@ async def chat_completion(
         "X-Title": "Tick Watchers AI",
     }
 
-    payload = {
-        "model": effective_model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ],
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-    }
+    last_error: Optional[Exception] = None
 
-    for attempt in range(3):  # retry 3x
-        try:
-            async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-                response = await client.post(
-                    f"{OPENROUTER_BASE_URL}/chat/completions",
-                    headers=headers,
-                    json=payload,
+    for model_name in model_candidates:
+        payload = {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+
+        for attempt in range(2):  # retry 2x per model
+            try:
+                async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+                    response = await client.post(
+                        f"{OPENROUTER_BASE_URL}/chat/completions",
+                        headers=headers,
+                        json=payload,
+                    )
+
+                if response.status_code != 200:
+                    print("🔴 STATUS:", response.status_code)
+                    print("🔴 BODY:", response.text)
+                    raise RuntimeError(
+                        f"OpenRouter API error {response.status_code}: {response.text}"
+                    )
+
+                data = response.json()
+                choices = data.get("choices") or []
+                if not choices:
+                    raise RuntimeError("OpenRouter returned empty choices")
+
+                return choices[0]["message"]["content"]
+
+            except Exception as e:
+                last_error = e
+                print(
+                    f"❌ AI ERROR (model {model_name}, attempt {attempt+1}):",
+                    str(e),
                 )
+                await asyncio.sleep(1.2 * (attempt + 1))  # backoff
 
-            if response.status_code != 200:
-                print("🔴 STATUS:", response.status_code)
-                print("🔴 BODY:", response.text)
-                raise RuntimeError(
-                    f"OpenRouter API error {response.status_code}: {response.text}"
-                )
-
-            data = response.json()
-            choices = data.get("choices") or []
-            if not choices:
-                raise RuntimeError("OpenRouter returned empty choices")
-
-            return choices[0]["message"]["content"]
-
-        except Exception as e:
-            print(f"❌ AI ERROR (attempt {attempt+1}):", str(e))
-
-            if attempt == 2:
-                raise
-
-            await asyncio.sleep(1.5 * (attempt + 1))  # backoff
+    if last_error:
+        raise last_error
+    raise RuntimeError("OpenRouter request failed")
 
 
 # ── System Prompts ──
 
-_CHAT_SYSTEM_PROMPT = """Kamu adalah AI Stock Analyst untuk aplikasi "Tick Watchers" — sebuah Decision Making Support System untuk saham Indonesia (IDX).
+_CHAT_SYSTEM_PROMPT = """Kamu adalah AI Stock Analyst untuk aplikasi "Tick Watchers" — seorang financial advisor profesional untuk saham Indonesia (IDX).
 
 IDENTITAS:
 - Nama: Ticki TackAI, asisten saham profesional
@@ -134,10 +149,12 @@ ATURAN:
 1. SELALU berikan analisis berbasis data yang tersedia. Jangan spekulasi tanpa dasar.
 2. Jelaskan KENAPA, bukan hanya APA.
 3. Jika user bertanya tentang saham yang tidak ada di data, jelaskan bahwa kamu hanya bisa menganalisis saham yang sudah di-track di watchlist.
-4. Gunakan emoji secara wajar untuk readability (📊 📈 📉 ✅ ⚠️ ❌ 💡).
-5. Untuk perbandingan, selalu gunakan tabel atau poin-poin terstruktur.
-6. Tutup dengan insight actionable yang jelas.
-7. Keep responses concise tapi informatif. Jangan terlalu panjang."""
+4. Jawaban HARUS singkat dan mengikuti format:
+    "Menurut data yang telah diberikan, {{TICKER}} {{kesimpulan singkat}}.\nDikarenakan:" lalu 2–5 poin bullet singkat berbasis data.
+5. Bullet harus format daftar bernomor atau strip "-"; tidak boleh tabel.
+6. Gaya bahasa seperti financial advisor profesional: rapi, jelas, dan meyakinkan.
+7. Akhiri dengan 1 kalimat insight actionable yang jelas.
+8. Keep responses concise tapi informatif. Jangan terlalu panjang."""
 
 
 _EXPLAIN_SYSTEM_PROMPT = """Kamu adalah AI yang menjelaskan keputusan investasi dari aplikasi "Tick Watchers".
@@ -148,14 +165,13 @@ Data saham:
 {stock_data}
 
 ATURAN:
-1. Jelaskan dalam 3-5 poin utama mengapa saham ini mendapat keputusan tersebut.
+1. Gunakan format: "Menurut data yang telah diberikan, {TICKER} {kesimpulan singkat}.\nDikarenakan:" lalu 2–5 poin bullet singkat berbasis data.
 2. Setiap poin harus merujuk ke metrik spesifik (ROE, PBV, MOS, dll.) dengan angkanya.
-3. Sertakan ⚠️ risiko jika ada kelemahan meskipun keputusan BUY.
-4. Sertakan 💡 insight jika ada peluang meskipun keputusan NO BUY.
+3. Sertakan risiko jika ada kelemahan meskipun keputusan BUY.
+4. Sertakan peluang jika ada peluang meskipun keputusan NO BUY.
 5. Akhiri dengan 1 kalimat ringkasan actionable.
 6. Gunakan Bahasa Indonesia.
-7. Format sebagai poin-poin bernomor. Singkat dan padat.
-8. JANGAN mengarang angka — hanya gunakan data yang diberikan."""
+7. JANGAN mengarang angka — hanya gunakan data yang diberikan."""
 
 
 def build_stock_context(stocks: list[dict]) -> str:

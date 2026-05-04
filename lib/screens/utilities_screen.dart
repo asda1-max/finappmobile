@@ -421,13 +421,13 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Sensors
+            // Hardware Info — Sensors
             GlassmorphicCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '📡 Sensor Market Motion',
+                    '🧩 Hardware Info — Sensors',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -436,7 +436,7 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Sensor perangkat untuk ilustrasi volatilitas dan stabilitas.',
+                    'Daftar sensor yang terdeteksi dan data live.',
                     style: TextStyle(fontSize: 11, color: AppColors.textTertiary),
                   ),
                   const SizedBox(height: 12),
@@ -452,6 +452,20 @@ class _UtilitiesScreenState extends State<UtilitiesScreen> {
                     subtitle: 'Rotasi & arah perangkat',
                     icon: Icons.explore_rounded,
                     stream: gyroscopeEvents,
+                  ),
+                  const SizedBox(height: 10),
+                  _SensorCard(
+                    title: 'User Accelerometer',
+                    subtitle: 'Percepatan tanpa gravitasi',
+                    icon: Icons.auto_graph_rounded,
+                    stream: userAccelerometerEvents,
+                  ),
+                  const SizedBox(height: 10),
+                  _SensorCard(
+                    title: 'Magnetometer',
+                    subtitle: 'Medan magnet & kompas',
+                    icon: Icons.explore_off_rounded,
+                    stream: magnetometerEvents,
                   ),
                 ],
               ),

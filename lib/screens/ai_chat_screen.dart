@@ -14,10 +14,10 @@ class AiChatScreen extends StatefulWidget {
   const AiChatScreen({super.key});
 
   @override
-  State<AiChatScreen> createState() => _AiChatScreenState();
+  State<AiChatScreen> createState() => AiChatScreenState();
 }
 
-class _AiChatScreenState extends State<AiChatScreen>
+class AiChatScreenState extends State<AiChatScreen>
     with TickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -39,7 +39,7 @@ class _AiChatScreenState extends State<AiChatScreen>
   @override
   void initState() {
     super.initState();
-    _checkAiStatus();
+    refreshAiStatus();
     _addWelcomeMessage();
   }
 
@@ -66,7 +66,7 @@ class _AiChatScreenState extends State<AiChatScreen>
     ));
   }
 
-  Future<void> _checkAiStatus() async {
+  Future<void> refreshAiStatus() async {
     try {
       final response = await ApiClient.instance.get(ApiConstants.aiStatus);
       final data = response.data as Map<String, dynamic>;
