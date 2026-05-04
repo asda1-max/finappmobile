@@ -143,4 +143,28 @@ class StockRepository {
       },
     );
   }
+
+  /// Save price alert configuration for the current user.
+  Future<void> savePriceAlertConfig({
+    required bool enabled,
+    required String ticker,
+    required double threshold,
+    int cooldownMinutes = 30,
+  }) async {
+    await _dio.post(
+      ApiConstants.priceAlertConfig,
+      data: {
+        'enabled': enabled,
+        'ticker': ticker.trim(),
+        'threshold': threshold,
+        'cooldown_minutes': cooldownMinutes,
+      },
+    );
+  }
+
+  /// Trigger a server-side price alert check for the current user.
+  Future<Map<String, dynamic>> checkPriceAlert() async {
+    final response = await _dio.post(ApiConstants.priceAlertCheck);
+    return response.data as Map<String, dynamic>;
+  }
 }

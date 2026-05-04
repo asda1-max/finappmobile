@@ -9,12 +9,20 @@ import sqlite3
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).with_name(".env"))
 
-from fastapi import FastAPI, Query, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, Query, HTTPException, UploadFile, File, Form, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import numpy as np
 import yfinance as yf
+
+try:
+    import firebase_admin
+    from firebase_admin import credentials, messaging
+except Exception:
+    firebase_admin = None
+    credentials = None
+    messaging = None
 
 from backend.data import get_stock_data
 from backend.decision_making import (
@@ -137,6 +145,24 @@ DB_PATH = (
     (_data_dir / "finapp.db") if _data_dir_env else Path(__file__).with_name("finapp.db")
 )
 
+FIREBASE_SERVICE_ACCOUNT_JSON = os.environ.get("FIREBASE_SERVICE_ACCOUNT_JSON")
+_firebase_app = None
+
+
+def _init_firebase() -> bool:
+    global _firebase_app
+    if _firebase_app is not None:
+        return True
+    if firebase_admin is None or credentials is None:
+        return False
+    if not FIREBASE_SERVICE_ACCOUNT_JSON:
+        return False
+    if not Path(FIREBASE_SERVICE_ACCOUNT_JSON).exists():
+        return False
+    cred = credentials.Certificate(FIREBASE_SERVICE_ACCOUNT_JSON)
+    _firebase_app = firebase_admin.initialize_app(cred)
+    return True
+
 
 def _db_connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -194,6 +220,29 @@ def _init_db() -> None:
                 kesan TEXT,
                 saran TEXT,
                 created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS device_tokens (
+                token TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                platform TEXT,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS price_alerts (
+                user_id TEXT PRIMARY KEY,
+                enabled INTEGER NOT NULL,
+                ticker TEXT NOT NULL,
+                threshold REAL NOT NULL,
+                cooldown_minutes INTEGER NOT NULL,
+                last_triggered_at TEXT,
+                updated_at TEXT NOT NULL
             )
             """
         )
@@ -350,6 +399,128 @@ def _verify_jwt(token: str) -> Optional[dict]:
         return None
 
 
+def _extract_auth_token(query_token: Optional[str], header_token: Optional[str]) -> Optional[str]:
+    token = query_token or header_token
+    if not token:
+        return None
+    return token.replace("Bearer ", "") if token.startswith("Bearer ") else token
+
+
+def _upsert_device_token(user_id: str, token: str, platform: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    with _db_connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO device_tokens (token, user_id, platform, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(token) DO UPDATE SET
+              user_id = excluded.user_id,
+              platform = excluded.platform,
+              updated_at = excluded.updated_at
+            """,
+            (token, user_id, platform, now),
+        )
+
+
+def _get_user_tokens(user_id: str) -> List[str]:
+    with _db_connect() as conn:
+        rows = conn.execute(
+            "SELECT token FROM device_tokens WHERE user_id = ?",
+            (user_id,),
+        ).fetchall()
+        return [r["token"] for r in rows]
+
+
+def _get_price_alert(user_id: str) -> Optional[dict]:
+    with _db_connect() as conn:
+        row = conn.execute(
+            """
+            SELECT user_id, enabled, ticker, threshold, cooldown_minutes, last_triggered_at
+            FROM price_alerts WHERE user_id = ?
+            """,
+            (user_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def _upsert_price_alert(user_id: str, enabled: bool, ticker: str, threshold: float, cooldown_minutes: int) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    with _db_connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO price_alerts (
+                user_id, enabled, ticker, threshold, cooldown_minutes, last_triggered_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, NULL, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+              enabled = excluded.enabled,
+              ticker = excluded.ticker,
+              threshold = excluded.threshold,
+              cooldown_minutes = excluded.cooldown_minutes,
+              updated_at = excluded.updated_at
+            """,
+            (user_id, int(enabled), ticker, float(threshold), int(cooldown_minutes), now),
+        )
+
+
+def _update_alert_last_triggered(user_id: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    with _db_connect() as conn:
+        conn.execute(
+            "UPDATE price_alerts SET last_triggered_at = ? WHERE user_id = ?",
+            (now, user_id),
+        )
+
+
+def _intraday_change_pct(ticker: str) -> Optional[float]:
+    t = (ticker or "").strip().upper()
+    if not t:
+        return None
+    stock = yf.Ticker(t)
+    info = {}
+    try:
+        info = stock.get_info()
+    except Exception:
+        info = {}
+
+    current = info.get("currentPrice") or info.get("regularMarketPrice") or 0
+    open_price = info.get("open") or info.get("regularMarketOpen") or 0
+
+    if not current or not open_price:
+        try:
+            hist = stock.history(period="1d", interval="5m")
+        except Exception:
+            hist = None
+        if hist is not None and not hist.empty:
+            if not open_price and "Open" in hist.columns:
+                open_price = float(hist.iloc[0].get("Open") or 0)
+            if not current and "Close" in hist.columns:
+                current = float(hist.iloc[-1].get("Close") or 0)
+
+    if not open_price or not current or open_price <= 0:
+        return None
+
+    return float((current - open_price) / open_price * 100.0)
+
+
+def _send_push_to_tokens(tokens: List[str], title: str, body: str, data: Optional[dict]) -> dict:
+    if not _init_firebase():
+        raise HTTPException(status_code=503, detail="Firebase not configured")
+    if messaging is None:
+        raise HTTPException(status_code=503, detail="Firebase messaging not available")
+
+    payload_data = {str(k): str(v) for k, v in (data or {}).items()}
+    message = messaging.MulticastMessage(
+        notification=messaging.Notification(title=title, body=body),
+        data=payload_data,
+        tokens=tokens,
+    )
+    response = messaging.send_multicast(message)
+    return {
+        "success": response.success_count,
+        "failure": response.failure_count,
+    }
+
+
 @app.post("/auth/register")
 async def register_user(payload: RegisterPayload):
     """Register a new user with bcrypt-hashed password."""
@@ -487,6 +658,213 @@ async def update_profile(payload: UpdateProfilePayload, authorization: str = Que
         raise HTTPException(status_code=400, detail="Username or email already exists.")
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to update profile: {str(e)}")
+
+
+class PushTokenPayload(BaseModel):
+    token: str
+    platform: str = "android"
+
+
+class PushSendPayload(BaseModel):
+    title: str
+    body: str
+    data: Optional[dict] = None
+
+
+@app.post("/push/register")
+async def register_push_token(
+    payload: PushTokenPayload,
+    authorization: str = Query(None, alias="token"),
+    authorization_header: str = Header(None, alias="Authorization"),
+):
+    token = _extract_auth_token(authorization, authorization_header)
+    if not token:
+        raise HTTPException(status_code=401, detail="Token required")
+
+    decoded = _verify_jwt(token)
+    if not decoded:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user_id = decoded.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+
+    fcm_token = payload.token.strip()
+    if not fcm_token:
+        raise HTTPException(status_code=400, detail="FCM token required")
+
+    _upsert_device_token(user_id, fcm_token, payload.platform.strip() or "android")
+    return {"success": True}
+
+
+@app.post("/push/send")
+async def send_push(
+    payload: PushSendPayload,
+    authorization: str = Query(None, alias="token"),
+    authorization_header: str = Header(None, alias="Authorization"),
+):
+    token = _extract_auth_token(authorization, authorization_header)
+    if not token:
+        raise HTTPException(status_code=401, detail="Token required")
+
+    decoded = _verify_jwt(token)
+    if not decoded:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user_id = decoded.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+
+    tokens = _get_user_tokens(user_id)
+    if not tokens:
+        return {"success": False, "sent": 0, "failed": 0, "message": "No device tokens"}
+
+    result = _send_push_to_tokens(tokens, payload.title, payload.body, payload.data)
+    return {
+        "success": True,
+        "sent": result["success"],
+        "failed": result["failure"],
+    }
+
+
+class PriceAlertConfigPayload(BaseModel):
+    enabled: bool = True
+    ticker: str
+    threshold: float
+    cooldown_minutes: int = 30
+
+
+@app.get("/alerts/config")
+async def get_alert_config(
+    authorization: str = Query(None, alias="token"),
+    authorization_header: str = Header(None, alias="Authorization"),
+):
+    token = _extract_auth_token(authorization, authorization_header)
+    if not token:
+        raise HTTPException(status_code=401, detail="Token required")
+
+    decoded = _verify_jwt(token)
+    if not decoded:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user_id = decoded.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+
+    row = _get_price_alert(user_id)
+    if not row:
+        return {
+            "enabled": False,
+            "ticker": "",
+            "threshold": 5.0,
+            "cooldown_minutes": 30,
+        }
+
+    return {
+        "enabled": bool(row.get("enabled")),
+        "ticker": row.get("ticker") or "",
+        "threshold": float(row.get("threshold") or 0),
+        "cooldown_minutes": int(row.get("cooldown_minutes") or 30),
+    }
+
+
+@app.post("/alerts/config")
+async def save_alert_config(
+    payload: PriceAlertConfigPayload,
+    authorization: str = Query(None, alias="token"),
+    authorization_header: str = Header(None, alias="Authorization"),
+):
+    token = _extract_auth_token(authorization, authorization_header)
+    if not token:
+        raise HTTPException(status_code=401, detail="Token required")
+
+    decoded = _verify_jwt(token)
+    if not decoded:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user_id = decoded.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+
+    ticker = payload.ticker.strip().upper()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="Ticker required")
+    if payload.threshold <= 0:
+        raise HTTPException(status_code=400, detail="Threshold must be > 0")
+    if payload.cooldown_minutes < 1:
+        raise HTTPException(status_code=400, detail="Cooldown must be >= 1 minute")
+
+    _upsert_price_alert(
+        user_id=user_id,
+        enabled=payload.enabled,
+        ticker=ticker,
+        threshold=float(payload.threshold),
+        cooldown_minutes=int(payload.cooldown_minutes),
+    )
+    return {"success": True}
+
+
+@app.post("/alerts/check")
+async def check_price_alert(
+    authorization: str = Query(None, alias="token"),
+    authorization_header: str = Header(None, alias="Authorization"),
+):
+    token = _extract_auth_token(authorization, authorization_header)
+    if not token:
+        raise HTTPException(status_code=401, detail="Token required")
+
+    decoded = _verify_jwt(token)
+    if not decoded:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user_id = decoded.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+
+    alert = _get_price_alert(user_id)
+    if not alert or not alert.get("enabled"):
+        return {"triggered": False, "message": "Alert disabled"}
+
+    ticker = alert.get("ticker") or ""
+    threshold = float(alert.get("threshold") or 0)
+    cooldown = int(alert.get("cooldown_minutes") or 30)
+    last_triggered = alert.get("last_triggered_at")
+
+    if last_triggered:
+        try:
+            last_dt = datetime.fromisoformat(last_triggered)
+            delta = datetime.now(timezone.utc) - last_dt
+            if delta < timedelta(minutes=cooldown):
+                return {"triggered": False, "message": "Cooldown active"}
+        except Exception:
+            pass
+
+    change_pct = _intraday_change_pct(ticker)
+    if change_pct is None:
+        return {"triggered": False, "message": "Price data unavailable"}
+
+    if change_pct < threshold:
+        return {
+            "triggered": False,
+            "message": "Threshold not met",
+            "change_pct": round(change_pct, 2),
+        }
+
+    tokens = _get_user_tokens(user_id)
+    if not tokens:
+        return {"triggered": False, "message": "No device tokens"}
+
+    title = f"Alert Harga: {ticker}"
+    body = f"{ticker} naik {change_pct:.2f}% (>= {threshold:.2f}%)"
+    data = {"ticker": ticker, "change_pct": f"{change_pct:.2f}", "threshold": f"{threshold:.2f}"}
+    result = _send_push_to_tokens(tokens, title, body, data)
+    _update_alert_last_triggered(user_id)
+    return {
+        "triggered": True,
+        "sent": result["success"],
+        "failed": result["failure"],
+        "change_pct": round(change_pct, 2),
+    }
 
 @app.get("/hybrid-preset")
 async def get_hybrid_preset(goals: str = Query(None), minat: str = Query(None)):

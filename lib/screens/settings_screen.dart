@@ -117,7 +117,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _alertThreshold.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
   }
 
-  void _saveAlertPrefs() {
+  Future<void> _saveAlertPrefs() async {
     final parsed = double.tryParse(_alertThresholdController.text);
     if (parsed == null || parsed <= 0) {
       setState(() => _statusMsg = 'Threshold alert tidak valid');
@@ -128,6 +128,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     LocalDbService.savePreference('alert_ticker', _alertTicker);
     LocalDbService.savePreference('alert_threshold', _alertThreshold);
     setState(() => _statusMsg = 'Alert harga tersimpan ✓');
+
+    try {
+      await _repo.savePriceAlertConfig(
+        enabled: _alertEnabled,
+        ticker: _alertTicker,
+        threshold: _alertThreshold,
+      );
+    } catch (e) {
+      setState(() => _statusMsg = 'Gagal sync alert ke server');
+    }
   }
 
   Future<void> _loadConfig() async {

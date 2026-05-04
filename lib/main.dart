@@ -8,6 +8,7 @@ import 'core/api_client.dart';
 import 'core/services/session_service.dart';
 import 'core/services/local_db_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/fcm_service.dart';
 import 'models/stock_data.dart';
 import 'data/stock_repository.dart';
 import 'widgets/glassmorphic_card.dart';
@@ -72,6 +73,7 @@ void main() async {
 
   // Initialize local SQLite database
   await LocalDbService.init();
+  await FcmService.init();
   await NotificationService.init();
 
   // Load saved API base URL if any

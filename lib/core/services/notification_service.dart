@@ -60,6 +60,22 @@ class NotificationService {
     );
   }
 
+  static Future<void> showRemoteNotification({
+    required String title,
+    required String body,
+  }) async {
+    if (!_initialized) {
+      await init();
+    }
+    final id = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
+    await _plugin.show(
+      id,
+      title,
+      body,
+      _details(),
+    );
+  }
+
   static NotificationDetails _details() {
     const androidDetails = AndroidNotificationDetails(
       _channelId,

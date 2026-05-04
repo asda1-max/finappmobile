@@ -28,6 +28,8 @@ class ApiConstants {
   static const String priceHistory = '/price-history';
   static const String performanceOverview = '/performance-overview';
   static const String rankingData = '/ranking-data';
+  static const String priceAlertConfig = '/alerts/config';
+  static const String priceAlertCheck = '/alerts/check';
 
   // Auth endpoints
   static const String authRegister = '/auth/register';

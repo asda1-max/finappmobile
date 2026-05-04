@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "160667488859",
+    "project_id": "finappmobile-f65f4",
+    "storage_bucket": "finappmobile-f65f4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:160667488859:android:4cca3d967fa469a5d6657e",
+        "android_client_info": {
+          "package_name": "com.example.finappmobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBrKPronhu9SNwA8iSBND50k1XfbtW134Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
