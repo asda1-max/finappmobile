@@ -17,7 +17,8 @@ import 'screens/login_screen.dart';
 import 'screens/ranking_screen.dart';
 import 'screens/stock_detail_screen.dart';
 import 'screens/settings_screen.dart';
-import 'screens/utilities_screen.dart';
+import 'screens/time_converter_screen.dart';
+import 'screens/hardware_sensors_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/feedback_screen.dart';
 import 'screens/logout_screen.dart';
@@ -26,6 +27,7 @@ import 'screens/nearby_screen.dart';
 import 'screens/slot_machine_screen.dart';
 import 'screens/let_it_ride_screen.dart';
 import 'screens/glossary_screen.dart';
+import 'screens/currency_converter_screen.dart';
 // ── Providers ──
 
 final stockRepositoryProvider = Provider<StockRepository>((ref) {
@@ -229,53 +231,74 @@ class _AppShellState extends ConsumerState<AppShell> {
                     _MoreActionTile(
                       icon: Icons.person_rounded,
                       label: 'Profil',
-                      index: 4,
-                      onTap: () => Navigator.pop(ctx, 4),
+                      index: 3,
+                      onTap: () => Navigator.pop(ctx, 3),
                     ),
                     _MoreActionTile(
                       icon: Icons.feedback_rounded,
                       label: 'Saran & Kesan',
-                      index: 5,
-                      onTap: () => Navigator.pop(ctx, 5),
+                      index: 4,
+                      onTap: () => Navigator.pop(ctx, 4),
                     ),
                     _MoreActionTile(
                       icon: Icons.settings_rounded,
                       label: 'Settings',
-                      index: 6,
-                      onTap: () => Navigator.pop(ctx, 6),
+                      index: 5,
+                      onTap: () => Navigator.pop(ctx, 5),
                     ),
                     _MoreActionTile(
                       icon: Icons.menu_book_rounded,
                       label: 'Glossary',
-                      index: 7,
-                      onTap: () => Navigator.pop(ctx, 7),
+                      index: 6,
+                      onTap: () => Navigator.pop(ctx, 6),
                     ),
                     _MoreActionTile(
                       icon: Icons.map_rounded,
                       label: 'Lokasi Terdekat',
-                      index: 9,
-                      onTap: () => Navigator.pop(ctx, 9),
+                      index: 8,
+                      onTap: () => Navigator.pop(ctx, 8),
                     ),
                     _MoreActionTile(
                       icon: Icons.casino_rounded,
                       label: 'Slot Machine',
-                      index: 10,
+                      index: 9,
                       accent: const Color(0xFFFFD700),
-                      onTap: () => Navigator.pop(ctx, 10),
+                      onTap: () => Navigator.pop(ctx, 9),
                     ),
                     _MoreActionTile(
                       icon: Icons.rocket_launch_rounded,
                       label: 'Let It Ride',
-                      index: 11,
+                      index: 10,
                       accent: AppColors.buyGreen,
+                      onTap: () => Navigator.pop(ctx, 10),
+                    ),
+                    _MoreActionTile(
+                      icon: Icons.currency_exchange_rounded,
+                      label: 'Currency Converter',
+                      index: 11,
+                      accent: const Color(0xFF4FC3F7),
                       onTap: () => Navigator.pop(ctx, 11),
+                    ),
+                    _MoreActionTile(
+                      icon: Icons.schedule_rounded,
+                      label: 'Time Converter',
+                      index: 12,
+                      accent: AppColors.primary,
+                      onTap: () => Navigator.pop(ctx, 12),
+                    ),
+                    _MoreActionTile(
+                      icon: Icons.memory_rounded,
+                      label: 'Hardware Sensors',
+                      index: 13,
+                      accent: AppColors.primary,
+                      onTap: () => Navigator.pop(ctx, 13),
                     ),
                     _MoreActionTile(
                       icon: Icons.logout_rounded,
                       label: 'Logout',
-                      index: 8,
+                      index: 7,
                       accent: AppColors.sellRed,
-                      onTap: () => Navigator.pop(ctx, 8),
+                      onTap: () => Navigator.pop(ctx, 7),
                     ),
                   ],
                 ),
@@ -290,7 +313,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (selected != null) {
       setState(() {
         _currentIndex = selected;
-        _navIndex = 4;
+        _navIndex = 3;
       });
     }
   }
@@ -304,7 +327,6 @@ class _AppShellState extends ConsumerState<AppShell> {
       const DashboardScreen(),
       AiChatScreen(key: _aiChatKey),
       RankingScreen(stocks: stocks),
-      const UtilitiesScreen(),
       const ProfileScreen(),
       const FeedbackScreen(),
       const SettingsScreen(),
@@ -313,10 +335,13 @@ class _AppShellState extends ConsumerState<AppShell> {
       const NearbyScreen(),
       const SlotMachineScreen(),
       const LetItRideScreen(),
+      const CurrencyConverterScreen(),
+      const TimeConverterScreen(),
+      const HardwareSensorsScreen(),
     ];
 
-    // Hide bottom nav when on "More" sub-screens (index >= 4)
-    final bool showBottomNav = _currentIndex < 4;
+    // Hide bottom nav when on "More" sub-screens (index >= 3)
+    final bool showBottomNav = _currentIndex < 3;
 
     return Scaffold(
       body: Stack(
@@ -382,7 +407,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                 height: 64,
                 selectedIndex: _navIndex,
                 onDestinationSelected: (i) {
-                  if (i == 4) {
+                  if (i == 3) {
                     _openMoreMenu();
                     return;
                   }
@@ -414,17 +439,6 @@ class _AppShellState extends ConsumerState<AppShell> {
                       color: AppColors.primary,
                     ),
                     label: 'Rankings',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(
-                      Icons.currency_exchange_rounded,
-                      color: AppColors.textMuted,
-                    ),
-                    selectedIcon: Icon(
-                      Icons.currency_exchange_rounded,
-                      color: AppColors.primary,
-                    ),
-                    label: 'Utilities',
                   ),
                   NavigationDestination(
                     icon: Icon(Icons.more_horiz_rounded, color: AppColors.textMuted),
