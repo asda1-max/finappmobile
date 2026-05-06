@@ -34,19 +34,73 @@ final stockRepositoryProvider = Provider<StockRepository>((ref) {
   return StockRepository();
 });
 
+// ── Client-side ticker format validation ──
+
+final _validTickerRe = RegExp(r'^[A-Z0-9]{1,10}(\.[A-Z]{1,5})?$');
+final _validIndexRe = RegExp(r'^\^[A-Z0-9]{1,10}$');
+
+/// Validate ticker format locally (no API call).
+/// Returns (isValid, reason).
+(bool, String) validateTickerFormat(String ticker) {
+  final t = ticker.trim().toUpperCase();
+  if (t.isEmpty) return (false, 'Ticker kosong');
+  if (t.length > 20) return (false, 'Ticker terlalu panjang');
+  if (t.split('.').length > 2) {
+    return (false, "Format tidak valid: '$t' — terlalu banyak titik");
+  }
+  if (t.startsWith('.')) {
+    return (false, "Format tidak valid: '$t' — tidak boleh diawali titik");
+  }
+  if (_validTickerRe.hasMatch(t) || _validIndexRe.hasMatch(t)) {
+    return (true, 'OK');
+  }
+  return (false, "Format tidak valid: '$t' — hanya huruf, angka, dan satu titik (contoh: BBCA.JK)");
+}
+
 class TickerListNotifier extends Notifier<List<String>> {
   @override
   List<String> build() => LocalDbService.getSavedTickers();
 
-  void addTicker(String symbol) {
-    if (symbol.isEmpty || state.contains(symbol)) return;
-    state = [...state, symbol];
-    LocalDbService.saveTickers(state);
+  /// Load saved tickers from backend (per-user).
+  Future<void> loadFromServer() async {
+    try {
+      final repo = ref.read(stockRepositoryProvider);
+      final serverTickers = await repo.getSavedTickers();
+      state = serverTickers;
+      LocalDbService.saveTickers(serverTickers);
+    } catch (e) {
+      // Fallback: keep local cache
+      // ignore: avoid_print
+      print('[TickerList] Failed to load from server: $e');
+    }
   }
 
-  void removeTicker(String symbol) {
+  Future<void> addTicker(String symbol) async {
+    if (symbol.isEmpty || state.contains(symbol)) return;
+    // Optimistic update
+    state = [...state, symbol];
+    LocalDbService.saveTickers(state);
+    // Sync with server
+    try {
+      final repo = ref.read(stockRepositoryProvider);
+      await repo.addTicker(symbol);
+    } catch (e) {
+      // ignore: avoid_print
+      print('[TickerList] Failed to sync add: $e');
+    }
+  }
+
+  Future<void> removeTicker(String symbol) async {
     state = state.where((item) => item != symbol).toList();
     LocalDbService.saveTickers(state);
+    // Sync with server
+    try {
+      final repo = ref.read(stockRepositoryProvider);
+      await repo.deleteTicker(symbol);
+    } catch (e) {
+      // ignore: avoid_print
+      print('[TickerList] Failed to sync delete: $e');
+    }
   }
 }
 
@@ -571,6 +625,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isAdding = false;
   String _searchQuery = '';
   String? _lastAlertKey;
+  bool _serverTickersLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadServerTickers();
+  }
+
+  Future<void> _loadServerTickers() async {
+    if (_serverTickersLoaded) return;
+    _serverTickersLoaded = true;
+    await ref.read(tickerListProvider.notifier).loadFromServer();
+  }
 
   @override
   void dispose() {
@@ -582,8 +649,40 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<void> _addTicker() async {
     final normalized = normalizeSymbol(_controller.text, _useJakartaSuffix);
     if (normalized.isEmpty) return;
+
+    // Client-side format validation
+    final (isValid, reason) = validateTickerFormat(normalized);
+    if (!isValid) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded,
+                    color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    reason,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.sellRed,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() => _isAdding = true);
-    ref.read(tickerListProvider.notifier).addTicker(normalized);
+    await ref.read(tickerListProvider.notifier).addTicker(normalized);
     // Save to search history
     await LocalDbService.addSearchHistory(normalized);
     _controller.clear();
@@ -660,55 +759,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ticker: stock.ticker,
       changeUp: changeUp,
       threshold: threshold,
-    );
-  }
-
-  Widget _buildMiniTerminal({
-    required String title,
-    required List<String> lines,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.terminal_rounded,
-                  size: 14, color: AppColors.primary),
-              const SizedBox(width: 6),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ...lines.map(
-            (line) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                line,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textSecondary,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -924,20 +974,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
 
-              if (stocksAsync.isLoading)
+              if (stocksAsync.isLoading && tickers.isNotEmpty)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
-                    child: _buildMiniTerminal(
-                      title: 'Market Desk Debug',
-                      lines: [
-                        '> status: fetching portfolio data',
-                        '> endpoint: /stocks',
-                        '> mengambil data: ${tickers.isEmpty ? '-' : (tickers.length == 1 ? tickers.first.toLowerCase() : tickers.map((t) => t.toLowerCase()).join(', '))}',
-                        '> time: ${TimeOfDay.now().format(context)}',
-                        '> note: waiting for response...',
-                      ],
-                    ),
+                    child: _LoadingTerminal(tickers: tickers),
                   ),
                 ),
 
@@ -1351,6 +1392,263 @@ class _MiniMetric extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Loading Terminal with animated per-ticker progress ──
+
+class _LoadingTerminal extends StatefulWidget {
+  final List<String> tickers;
+  const _LoadingTerminal({required this.tickers});
+
+  @override
+  State<_LoadingTerminal> createState() => _LoadingTerminalState();
+}
+
+class _LoadingTerminalState extends State<_LoadingTerminal> {
+  int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick();
+  }
+
+  void _tick() async {
+    while (mounted && _currentIndex < widget.tickers.length) {
+      await Future.delayed(const Duration(milliseconds: 1200));
+      if (!mounted) return;
+      setState(() {
+        _currentIndex++;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = widget.tickers.length;
+    final time = TimeOfDay.now().format(context);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1117),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF30363D)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Terminal header
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: AppColors.buyGreen,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.buyGreen.withValues(alpha: 0.5),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE5C07B),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF61AFEF),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'yfinance — loading data',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF8B949E),
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const Spacer(),
+              Text(
+                time,
+                style: const TextStyle(
+                  fontSize: 9,
+                  color: Color(0xFF484F58),
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Divider(color: Color(0xFF21262D), height: 1),
+          const SizedBox(height: 8),
+          // Progress lines
+          ...List.generate(total, (i) {
+            final ticker = widget.tickers[i];
+            final num = i + 1;
+            if (i < _currentIndex) {
+              // Completed
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Row(
+                  children: [
+                    const Text(
+                      '✓ ',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.buyGreen,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        'Loading $ticker ($num/$total) — done',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF7EE787),
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            } else if (i == _currentIndex) {
+              // Currently loading — blinking cursor
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Row(
+                  children: [
+                    _BlinkingCursor(),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Loading $ticker ($num/$total)...',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFFE5C07B),
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            } else {
+              // Queued
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Text(
+                  '  Loading $ticker ($num/$total) — queued',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF484F58),
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              );
+            }
+          }),
+          const SizedBox(height: 6),
+          // Status bar
+          Row(
+            children: [
+              Text(
+                '${_currentIndex < total ? _currentIndex : total}/$total completed',
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF8B949E),
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const Spacer(),
+              SizedBox(
+                width: 80,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: total > 0 ? _currentIndex / total : 0,
+                    minHeight: 3,
+                    backgroundColor: const Color(0xFF21262D),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.buyGreen,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BlinkingCursor extends StatefulWidget {
+  @override
+  State<_BlinkingCursor> createState() => _BlinkingCursorState();
+}
+
+class _BlinkingCursorState extends State<_BlinkingCursor>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..repeat(reverse: true);
+    _opacity = Tween<double>(begin: 1.0, end: 0.0).animate(_ctrl);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: const Text(
+        '▸',
+        style: TextStyle(
+          fontSize: 12,
+          color: Color(0xFFE5C07B),
+          fontFamily: 'monospace',
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

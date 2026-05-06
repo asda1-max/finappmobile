@@ -57,6 +57,16 @@ class StockRepository {
     return data['deleted'] as bool? ?? false;
   }
 
+  /// Validate a ticker format before saving/fetching.
+  /// Returns a map with 'valid' (bool), 'ticker' (String), and 'reason' (String).
+  Future<Map<String, dynamic>> validateTicker(String ticker) async {
+    final response = await _dio.post(
+      ApiConstants.validateTicker,
+      data: {'ticker': ticker.trim()},
+    );
+    return response.data as Map<String, dynamic>;
+  }
+
   /// Reset all saved data (requires confirmation).
   Future<void> resetAll() async {
     await _dio.post(

@@ -21,6 +21,7 @@ class ApiConstants {
   // ── Endpoints ──
   static const String stocks = '/stocks';
   static const String savedTickers = '/saved-tickers';
+  static const String validateTicker = '/validate-ticker';
   static const String hybridConfig = '/hybrid-config';
   static const String decisionCagr = '/decision-cagr';
   static const String decisionCagrAuto = '/decision-cagr-auto';

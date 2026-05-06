@@ -2,6 +2,7 @@ from typing import List, Optional
 from pathlib import Path
 import json
 import math
+import re
 from datetime import datetime, timezone, date, timedelta
 import sqlite3
 
@@ -9,7 +10,7 @@ import sqlite3
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).with_name(".env"))
 
-from fastapi import FastAPI, Query, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, Query, HTTPException, UploadFile, File, Form, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -169,14 +170,45 @@ def _init_db() -> None:
             conn.execute("ALTER TABLE users ADD COLUMN minat TEXT")
         except sqlite3.OperationalError:
             pass
-            
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS saved_tickers (
-                ticker TEXT PRIMARY KEY
+
+        # ── Migrate saved_tickers to per-user ──
+        # Check if old schema (no user_id) exists and migrate
+        cur = conn.execute("PRAGMA table_info(saved_tickers)")
+        columns = [row[1] for row in cur.fetchall()]
+        if "user_id" not in columns and len(columns) > 0:
+            # Old table exists without user_id — migrate
+            conn.execute("ALTER TABLE saved_tickers RENAME TO saved_tickers_old")
+            conn.execute(
+                """
+                CREATE TABLE saved_tickers (
+                    user_id TEXT NOT NULL,
+                    ticker TEXT NOT NULL,
+                    PRIMARY KEY (user_id, ticker)
+                )
+                """
             )
-            """
-        )
+            # Copy old tickers — assign to ALL existing users so nobody loses data
+            user_ids = [r[0] for r in conn.execute("SELECT id FROM users").fetchall()]
+            old_tickers = [r[0] for r in conn.execute("SELECT ticker FROM saved_tickers_old").fetchall()]
+            for uid in user_ids:
+                for t in old_tickers:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO saved_tickers (user_id, ticker) VALUES (?, ?)",
+                        (uid, t),
+                    )
+            conn.execute("DROP TABLE saved_tickers_old")
+        elif len(columns) == 0:
+            # Fresh install — create with user_id from the start
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS saved_tickers (
+                    user_id TEXT NOT NULL,
+                    ticker TEXT NOT NULL,
+                    PRIMARY KEY (user_id, ticker)
+                )
+                """
+            )
+
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS meta (
@@ -246,11 +278,14 @@ def _migrate_from_json() -> None:
             if isinstance(tickers, list):
                 clean = [str(t).strip() for t in tickers if str(t).strip()]
                 with _db_connect() as conn:
-                    for t in clean:
-                        conn.execute(
-                            "INSERT OR IGNORE INTO saved_tickers (ticker) VALUES (?)",
-                            (t,),
-                        )
+                    # Assign old tickers to all existing users
+                    user_ids = [r[0] for r in conn.execute("SELECT id FROM users").fetchall()]
+                    for uid in (user_ids or [""]):
+                        for t in clean:
+                            conn.execute(
+                                "INSERT OR IGNORE INTO saved_tickers (user_id, ticker) VALUES (?, ?)",
+                                (uid, t),
+                            )
         except Exception:
             pass
 
@@ -282,39 +317,99 @@ def _insert_user(user: dict) -> None:
         )
 
 
-def _list_saved_tickers() -> List[str]:
+def _list_saved_tickers(user_id: str = "") -> List[str]:
     with _db_connect() as conn:
-        cur = conn.execute("SELECT ticker FROM saved_tickers ORDER BY ticker ASC")
+        if user_id:
+            cur = conn.execute(
+                "SELECT ticker FROM saved_tickers WHERE user_id = ? ORDER BY ticker ASC",
+                (user_id,),
+            )
+        else:
+            cur = conn.execute("SELECT DISTINCT ticker FROM saved_tickers ORDER BY ticker ASC")
         rows = cur.fetchall()
         return [row["ticker"] for row in rows]
 
 
-def _add_saved_ticker(ticker: str) -> None:
+def _add_saved_ticker(ticker: str, user_id: str = "") -> None:
     with _db_connect() as conn:
         conn.execute(
-            "INSERT OR IGNORE INTO saved_tickers (ticker) VALUES (?)",
-            (ticker,),
+            "INSERT OR IGNORE INTO saved_tickers (user_id, ticker) VALUES (?, ?)",
+            (user_id, ticker),
         )
 
 
-def _delete_saved_ticker(ticker: str) -> bool:
+def _delete_saved_ticker(ticker: str, user_id: str = "") -> bool:
     with _db_connect() as conn:
-        cur = conn.execute(
-            "DELETE FROM saved_tickers WHERE ticker = ?",
-            (ticker,),
-        )
+        if user_id:
+            cur = conn.execute(
+                "DELETE FROM saved_tickers WHERE user_id = ? AND ticker = ?",
+                (user_id, ticker),
+            )
+        else:
+            cur = conn.execute(
+                "DELETE FROM saved_tickers WHERE ticker = ?",
+                (ticker,),
+            )
         return cur.rowcount > 0
 
 
-def _replace_saved_tickers(tickers: List[str]) -> None:
+def _replace_saved_tickers(tickers: List[str], user_id: str = "") -> None:
     clean = [str(t).strip() for t in tickers if str(t).strip()]
     with _db_connect() as conn:
-        conn.execute("DELETE FROM saved_tickers")
+        if user_id:
+            conn.execute("DELETE FROM saved_tickers WHERE user_id = ?", (user_id,))
+        else:
+            conn.execute("DELETE FROM saved_tickers")
         for t in clean:
             conn.execute(
-                "INSERT OR IGNORE INTO saved_tickers (ticker) VALUES (?)",
-                (t,),
+                "INSERT OR IGNORE INTO saved_tickers (user_id, ticker) VALUES (?, ?)",
+                (user_id, t),
             )
+
+
+# ── Ticker Validation ──
+
+_VALID_TICKER_RE = re.compile(r"^[A-Z0-9]{1,10}(\.[A-Z]{1,5})?$")
+_VALID_INDEX_RE = re.compile(r"^\^[A-Z0-9]{1,10}$")
+
+
+def _validate_ticker_format(ticker: str) -> tuple:
+    """Validate ticker format. Returns (is_valid, reason)."""
+    t = (ticker or "").strip().upper()
+    if not t:
+        return False, "Ticker kosong"
+    if len(t) > 20:
+        return False, "Ticker terlalu panjang"
+    # Reject patterns with multiple dots like .JK.JK.JK
+    if t.count(".") > 1:
+        return False, f"Format tidak valid: '{t}' — terlalu banyak titik"
+    # Reject tickers starting with a dot
+    if t.startswith("."):
+        return False, f"Format tidak valid: '{t}' — tidak boleh diawali titik"
+    # Match valid ticker patterns
+    if _VALID_TICKER_RE.match(t) or _VALID_INDEX_RE.match(t):
+        return True, "OK"
+    return False, f"Format tidak valid: '{t}' — hanya huruf, angka, dan satu titik (contoh: BBCA.JK)"
+
+
+def _extract_user_id_from_auth(authorization: str, request=None) -> str:
+    """Extract user_id from token query param or Authorization header. Raises HTTPException on failure."""
+    token_raw = authorization
+    # Fallback: try Authorization header from the request
+    if not token_raw and request is not None:
+        header_val = request.headers.get("authorization") or ""
+        if header_val:
+            token_raw = header_val
+    if not token_raw:
+        raise HTTPException(status_code=401, detail="Token required")
+    token = token_raw.replace("Bearer ", "") if token_raw.startswith("Bearer ") else token_raw
+    decoded = _verify_jwt(token)
+    if not decoded:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    user_id = decoded.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    return user_id
 
 
 _init_db()
@@ -624,12 +719,12 @@ def _save_cagr_data(items: dict) -> None:
     CAGR_JSON_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def _load_saved_tickers() -> List[str]:
-    return _list_saved_tickers()
+def _load_saved_tickers(user_id: str = "") -> List[str]:
+    return _list_saved_tickers(user_id=user_id)
 
 
-def _save_tickers(tickers: List[str]) -> None:
-    _replace_saved_tickers(tickers)
+def _save_tickers(tickers: List[str], user_id: str = "") -> None:
+    _replace_saved_tickers(tickers, user_id=user_id)
 
 
 def _reset_all_entries() -> None:
@@ -637,20 +732,20 @@ def _reset_all_entries() -> None:
     _save_cagr_data({})
 
 
-def _delete_ticker_entry(ticker: str) -> dict:
-    """Hapus ticker dari data.json dan cagr_data.json."""
+def _delete_ticker_entry(ticker: str, user_id: str = "") -> dict:
+    """Hapus ticker dari saved_tickers dan cagr_data.json."""
 
     t = (ticker or "").strip()
     if not t:
         return {
             "deleted": False,
             "ticker": "",
-            "saved_tickers": _load_saved_tickers(),
+            "saved_tickers": _load_saved_tickers(user_id=user_id),
         }
 
-    # Hapus dari saved tickers
-    removed_saved = _delete_saved_ticker(t)
-    filtered = _load_saved_tickers()
+    # Hapus dari saved tickers (per-user)
+    removed_saved = _delete_saved_ticker(t, user_id=user_id)
+    filtered = _load_saved_tickers(user_id=user_id)
 
     # Hapus dari CAGR records
     cagr_items = _load_cagr_data()
@@ -1154,7 +1249,20 @@ async def get_stocks(tickers: str = Query(
     Frontend wajib mengirim query ?tickers=....
     """
 
-    symbols: List[str] = [t.strip() for t in tickers.split(",") if t.strip()]
+    raw_symbols: List[str] = [t.strip() for t in tickers.split(",") if t.strip()]
+
+    # Filter out invalid ticker formats to save yfinance resources
+    symbols: List[str] = []
+    invalid_tickers: List[dict] = []
+    for s in raw_symbols:
+        valid, reason = _validate_ticker_format(s)
+        if valid:
+            symbols.append(s)
+        else:
+            invalid_tickers.append({"ticker": s, "reason": reason})
+
+    if not symbols:
+        return []
 
     df = get_stock_data(symbols)
 
@@ -1177,11 +1285,19 @@ async def get_stocks(tickers: str = Query(
     return cleaned_records
 
 
-@app.get("/saved-tickers")
-async def get_saved_tickers() -> dict:
-    """Kembalikan daftar ticker yang sudah disimpan di data.json."""
+@app.post("/validate-ticker")
+async def validate_ticker(payload: TickerPayload) -> dict:
+    """Validate a ticker format before saving/fetching."""
+    t = payload.ticker.strip().upper()
+    valid, reason = _validate_ticker_format(t)
+    return {"valid": valid, "ticker": t, "reason": reason}
 
-    tickers = _load_saved_tickers()
+
+@app.get("/saved-tickers")
+async def get_saved_tickers(request: Request, authorization: str = Query(None, alias="token")) -> dict:
+    """Kembalikan daftar ticker yang disimpan untuk user yang sedang login."""
+    user_id = _extract_user_id_from_auth(authorization, request=request)
+    tickers = _load_saved_tickers(user_id=user_id)
     return {"tickers": tickers}
 
 
@@ -1240,22 +1356,28 @@ async def save_hybrid_config(payload: HybridConfigPayload) -> dict:
 
 
 @app.post("/saved-tickers")
-async def add_saved_ticker(payload: TickerPayload) -> dict:
-    """Tambahkan satu ticker ke data.json jika belum ada."""
+async def add_saved_ticker(payload: TickerPayload, request: Request, authorization: str = Query(None, alias="token")) -> dict:
+    """Tambahkan satu ticker ke saved_tickers untuk user yang sedang login."""
+    user_id = _extract_user_id_from_auth(authorization, request=request)
 
-    ticker = payload.ticker.strip()
+    ticker = payload.ticker.strip().upper()
     if not ticker:
-        return {"tickers": _load_saved_tickers()}
+        return {"tickers": _load_saved_tickers(user_id=user_id)}
 
-    _add_saved_ticker(ticker)
-    return {"tickers": _load_saved_tickers()}
+    # Validate format before saving
+    valid, reason = _validate_ticker_format(ticker)
+    if not valid:
+        raise HTTPException(status_code=400, detail=reason)
+
+    _add_saved_ticker(ticker, user_id=user_id)
+    return {"tickers": _load_saved_tickers(user_id=user_id)}
 
 
 @app.delete("/entry/{ticker}")
-async def delete_entry(ticker: str) -> dict:
-    """Hapus satu entry ticker dari daftar saved + data CAGR."""
-
-    return _delete_ticker_entry(ticker)
+async def delete_entry(ticker: str, request: Request, authorization: str = Query(None, alias="token")) -> dict:
+    """Hapus satu entry ticker dari daftar saved + data CAGR untuk user yang sedang login."""
+    user_id = _extract_user_id_from_auth(authorization, request=request)
+    return _delete_ticker_entry(ticker, user_id=user_id)
 
 
 @app.post("/reset-all")
