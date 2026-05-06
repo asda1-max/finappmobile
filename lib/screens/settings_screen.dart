@@ -23,8 +23,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _loading = true;
   String? _statusMsg;
   Map<String, dynamic>? _profilePreset;
-  String? _portfolioGoals;
-  String? _minat;
+  int? _prefStabilitas;
+  int? _prefPertumbuhan;
+  int? _prefDividen;
+  int? _prefRisiko;
 
   final TextEditingController _alertThresholdController =
       TextEditingController();
@@ -62,15 +64,50 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
   
   Future<void> _loadProfilePreset() async {
-    final goals = await SessionService.getPortfolioGoals();
-    final minat = await SessionService.getMinat();
-    if (goals != null || minat != null) {
+    var prefStabilitas = await SessionService.getPrefStabilitas();
+    var prefPertumbuhan = await SessionService.getPrefPertumbuhan();
+    var prefDividen = await SessionService.getPrefDividen();
+    var prefRisiko = await SessionService.getPrefRisiko();
+
+    if (prefStabilitas == null && prefPertumbuhan == null && prefDividen == null && prefRisiko == null) {
+      try {
+        final token = await SessionService.getToken();
+        if (token != null) {
+          final profile = await _authRepo.getProfile(token);
+          prefStabilitas = profile.prefStabilitas;
+          prefPertumbuhan = profile.prefPertumbuhan;
+          prefDividen = profile.prefDividen;
+          prefRisiko = profile.prefRisiko;
+          await SessionService.saveSession(
+            token: token,
+            username: profile.username,
+            email: profile.email,
+            profilePic: profile.profilePic,
+            prefStabilitas: prefStabilitas,
+            prefPertumbuhan: prefPertumbuhan,
+            prefDividen: prefDividen,
+            prefRisiko: prefRisiko,
+          );
+        }
+      } catch (_) {
+        // ignore profile fetch errors
+      }
+    }
+
+    if (prefStabilitas != null || prefPertumbuhan != null || prefDividen != null || prefRisiko != null) {
       setState(() {
-        _portfolioGoals = goals;
-        _minat = minat;
+        _prefStabilitas = prefStabilitas;
+        _prefPertumbuhan = prefPertumbuhan;
+        _prefDividen = prefDividen;
+        _prefRisiko = prefRisiko;
       });
       try {
-        final preset = await _authRepo.getHybridPreset(goals ?? '', minat ?? '');
+        final preset = await _authRepo.getHybridPreset(
+          _prefStabilitas ?? 3,
+          _prefPertumbuhan ?? 3,
+          _prefDividen ?? 3,
+          _prefRisiko ?? 3,
+        );
         setState(() {
           _profilePreset = preset;
         });

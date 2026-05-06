@@ -523,16 +523,21 @@ async def get_current_user(authorization: str = Query(None, alias="token")):
         "username": user["username"], 
         "email": user["email"],
         "profile_pic": user.get("profile_pic"),
-        "portfolio_goals": user.get("portfolio_goals"),
-        "minat": user.get("minat")
+        "pref_stabilitas": user.get("pref_stabilitas"),
+        "pref_pertumbuhan": user.get("pref_pertumbuhan"),
+        "pref_dividen": user.get("pref_dividen"),
+        "pref_risiko": user.get("pref_risiko"),
+        "hybrid_config": user.get("hybrid_config"),
     }
 
 class UpdateProfilePayload(BaseModel):
     username: Optional[str] = None
     email: Optional[str] = None
     password: Optional[str] = None
-    portfolio_goals: Optional[str] = None
-    minat: Optional[str] = None
+    pref_stabilitas: Optional[int] = None
+    pref_pertumbuhan: Optional[int] = None
+    pref_dividen: Optional[int] = None
+    pref_risiko: Optional[int] = None
 
 @app.put("/auth/me")
 async def update_profile(payload: UpdateProfilePayload, authorization: str = Query(None, alias="token")):
@@ -566,12 +571,18 @@ async def update_profile(payload: UpdateProfilePayload, authorization: str = Que
                 import bcrypt
                 updates.append("password_hash = ?")
                 params.append(bcrypt.hashpw(payload.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8"))
-            if payload.portfolio_goals is not None:
-                updates.append("portfolio_goals = ?")
-                params.append(payload.portfolio_goals.strip())
-            if payload.minat is not None:
-                updates.append("minat = ?")
-                params.append(payload.minat.strip())
+            if payload.pref_stabilitas is not None:
+                updates.append("pref_stabilitas = ?")
+                params.append(payload.pref_stabilitas)
+            if payload.pref_pertumbuhan is not None:
+                updates.append("pref_pertumbuhan = ?")
+                params.append(payload.pref_pertumbuhan)
+            if payload.pref_dividen is not None:
+                updates.append("pref_dividen = ?")
+                params.append(payload.pref_dividen)
+            if payload.pref_risiko is not None:
+                updates.append("pref_risiko = ?")
+                params.append(payload.pref_risiko)
                 
             if updates:
                 params.append(user_id)
@@ -585,8 +596,11 @@ async def update_profile(payload: UpdateProfilePayload, authorization: str = Que
             "username": updated_user["username"],
             "email": updated_user["email"],
             "profile_pic": updated_user.get("profile_pic"),
-            "portfolio_goals": updated_user.get("portfolio_goals"),
-            "minat": updated_user.get("minat")
+            "pref_stabilitas": updated_user.get("pref_stabilitas"),
+            "pref_pertumbuhan": updated_user.get("pref_pertumbuhan"),
+            "pref_dividen": updated_user.get("pref_dividen"),
+            "pref_risiko": updated_user.get("pref_risiko"),
+            "hybrid_config": updated_user.get("hybrid_config"),
         }
     except sqlite3.IntegrityError as e:
         raise HTTPException(status_code=400, detail="Username or email already exists.")
@@ -594,29 +608,67 @@ async def update_profile(payload: UpdateProfilePayload, authorization: str = Que
         raise HTTPException(status_code=400, detail=f"Failed to update profile: {str(e)}")
 
 @app.get("/hybrid-preset")
-async def get_hybrid_preset(goals: str = Query(None), minat: str = Query(None)):
+async def get_hybrid_preset(
+    pref_stabilitas: int = Query(3, ge=1, le=5),
+    pref_pertumbuhan: int = Query(3, ge=1, le=5),
+    pref_dividen: int = Query(3, ge=1, le=5),
+    pref_risiko: int = Query(3, ge=1, le=5)
+):
     '''
-    Returns an optimized preset for Hybrid Mode depending on selected goals and minat.
+    Returns an optimized preset for Hybrid Mode depending on 1-5 scale preferences.
     Weights Order: 
     1. ROE, 2. EPS Growth, 3. PER, 4. PBV, 5. DER, 6. Current Ratio, 7. Div Yield, 8. Operating Margin
     '''
-    # Default fallback
-    use_cagr_weights = [0.18, 0.06, 0.12, 0.20, 0.15, 0.15, 0.08, 0.12]
-    no_cagr_weights = [0.20, 0.00, 0.10, 0.30, 0.20, 0.20, 0.00, 0.00]
-    rec, buy, risk = 0.52, 0.44, 0.34
+    # Base weights (neutral 3-3-3-3)
+    # ROE, EPS, PER, PBV, DER, CR, DIV, OPM
+    base_w = [0.15, 0.10, 0.15, 0.15, 0.15, 0.10, 0.10, 0.10]
     
-    goals = goals.lower() if goals else ""
-    minat = minat.lower() if minat else ""
+    # Adjust based on preferences
+    # Stabilitas (High = high ROE, CR, OPM, DER (low debt))
+    stab_adj = (pref_stabilitas - 3) * 0.03
+    base_w[0] += stab_adj # ROE
+    base_w[4] += stab_adj # DER
+    base_w[5] += stab_adj # CR
     
-    # Simple logic mapping
-    if "aggressive" in goals or "tech" in minat or "growth" in minat:
-        use_cagr_weights = [0.15, 0.25, 0.10, 0.10, 0.10, 0.10, 0.05, 0.15]
-        no_cagr_weights = [0.20, 0.00, 0.15, 0.15, 0.10, 0.10, 0.10, 0.20]
-        rec, buy, risk = 0.60, 0.50, 0.35 # Higher risk tolerance
-    elif "preservation" in goals or "dividend" in minat or "value" in minat:
-        use_cagr_weights = [0.15, 0.05, 0.20, 0.20, 0.10, 0.10, 0.15, 0.05]
-        no_cagr_weights = [0.20, 0.00, 0.25, 0.25, 0.10, 0.10, 0.10, 0.00]
-        rec, buy, risk = 0.55, 0.48, 0.40 # Requires safer plays
+    # Pertumbuhan (High = high EPS Growth)
+    growth_adj = (pref_pertumbuhan - 3) * 0.05
+    base_w[1] += growth_adj # EPS Growth
+    base_w[7] += (growth_adj * 0.5) # OPM
+    
+    # Dividen (High = high Div Yield)
+    div_adj = (pref_dividen - 3) * 0.05
+    base_w[6] += div_adj # Div Yield
+    
+    # Risiko (Low Risk Tolerance (1) = high value metrics PER/PBV, High Risk (5) = lower value importance)
+    # If risk tolerance is 1, they want very safe value stocks (high weight on PER/PBV).
+    # If risk tolerance is 5, they care less about valuation.
+    risk_adj = (3 - pref_risiko) * 0.04
+    base_w[2] += risk_adj # PER
+    base_w[3] += risk_adj # PBV
+    
+    # Normalize weights to ensure they are positive and sum to 1.0
+    use_cagr_weights = [max(0.02, w) for w in base_w]
+    total_use = sum(use_cagr_weights)
+    use_cagr_weights = [round(w / total_use, 3) for w in use_cagr_weights]
+    
+    # Fix rounding errors
+    use_cagr_weights[-1] = round(1.0 - sum(use_cagr_weights[:-1]), 3)
+
+    # For no_cagr, EPS Growth (idx 1) is 0
+    no_cagr_weights = list(use_cagr_weights)
+    no_cagr_weights[1] = 0.0
+    total_no = sum(no_cagr_weights)
+    no_cagr_weights = [round(w / total_no, 3) for w in no_cagr_weights]
+    no_cagr_weights[-1] = round(1.0 - sum(no_cagr_weights[:-1]), 3)
+
+    # Thresholds
+    # High risk tolerance = lower buy thresholds
+    base_rec, base_buy, base_risk = 0.55, 0.45, 0.35
+    thr_adj = (pref_risiko - 3) * 0.03
+    
+    rec = max(0.3, min(0.9, base_rec - thr_adj))
+    buy = max(0.2, min(0.8, base_buy - thr_adj))
+    risk = max(0.1, min(0.7, base_risk - thr_adj))
 
     return {
         "use_cagr": {
@@ -1250,18 +1302,18 @@ async def root():
 
 
 @app.get("/stocks")
-async def get_stocks(tickers: str = Query(
-    ...,  # wajib diisi sekarang
-    description="Daftar ticker dipisah koma, contoh: BBCA.JK,BBRI.JK",
-)):
-    """Ambil data saham sebagai JSON untuk daftar ticker tertentu.
-
-    Frontend wajib mengirim query ?tickers=....
-    """
+async def get_stocks(
+    request: Request,
+    tickers: str = Query(
+        ...,  # wajib diisi sekarang
+        description="Daftar ticker dipisah koma, contoh: BBCA.JK,BBRI.JK",
+    ),
+    authorization: str = Query(None, alias="token")
+):
+    """Ambil data saham sebagai JSON untuk daftar ticker tertentu."""
 
     raw_symbols: List[str] = [t.strip() for t in tickers.split(",") if t.strip()]
 
-    # Filter out invalid ticker formats to save yfinance resources
     symbols: List[str] = []
     invalid_tickers: List[dict] = []
     for s in raw_symbols:
@@ -1274,7 +1326,20 @@ async def get_stocks(tickers: str = Query(
     if not symbols:
         return []
 
-    df = get_stock_data(symbols)
+    custom_hybrid_cfg = None
+    try:
+        user_id = _extract_user_id_from_auth(authorization, request=request)
+        if user_id:
+            with sqlite3.connect("backend/finapp.db") as conn:
+                conn.row_factory = sqlite3.Row
+                cur = conn.execute("SELECT hybrid_config FROM users WHERE id = ?", (user_id,))
+                row = cur.fetchone()
+                if row and row["hybrid_config"]:
+                    custom_hybrid_cfg = json.loads(row["hybrid_config"])
+    except Exception as e:
+        print(f"Auth extraction failed or custom config not loaded: {e}")
+
+    df = get_stock_data(symbols, custom_hybrid_cfg=custom_hybrid_cfg)
 
     records = df.to_dict(orient="records")
     
@@ -1319,8 +1384,12 @@ async def get_hybrid_config() -> dict:
 
 
 @app.post("/hybrid-config")
-async def save_hybrid_config(payload: HybridConfigPayload) -> dict:
-    """Simpan konfigurasi bobot hybrid (use_cagr/no_cagr)."""
+async def save_hybrid_config(payload: HybridConfigPayload, request: Request, authorization: str = Query(None, alias="token")) -> dict:
+    """Simpan konfigurasi bobot hybrid (use_cagr/no_cagr) ke profil user."""
+
+    user_id = _extract_user_id_from_auth(authorization, request=request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
     use_raw = payload.use_cagr.model_dump() if hasattr(payload.use_cagr, "model_dump") else payload.use_cagr.dict()
     no_raw = payload.no_cagr.model_dump() if hasattr(payload.no_cagr, "model_dump") else payload.no_cagr.dict()
@@ -1328,35 +1397,34 @@ async def save_hybrid_config(payload: HybridConfigPayload) -> dict:
     use_cfg = _normalize_hybrid_mode_config(use_raw, _default_hybrid_mode_config(True))
     no_cfg = _normalize_hybrid_mode_config(no_raw, _default_hybrid_mode_config(False))
 
-    existing = _load_threshold_data()
-    methods_cfg = existing.get("methods") if isinstance(existing.get("methods"), dict) else {}
-    hybrid_cfg_existing = existing.get("hybrid") if isinstance(existing.get("hybrid"), dict) else {}
-    meta_cfg = existing.get("meta") if isinstance(existing.get("meta"), dict) else {}
-
-    hybrid_cfg_existing["use_cagr"] = {
-        "recommended": use_cfg["recommended"],
-        "buy": use_cfg["buy"],
-        "risk": use_cfg["risk"],
-    }
-    hybrid_cfg_existing["no_cagr"] = {
-        "recommended": no_cfg["recommended"],
-        "buy": no_cfg["buy"],
-        "risk": no_cfg["risk"],
-    }
-
-    out = {
-        "methods": methods_cfg,
-        "hybrid": hybrid_cfg_existing,
+    user_config_dict = {
+        "hybrid": {
+            "use_cagr": {
+                "recommended": use_cfg["recommended"],
+                "buy": use_cfg["buy"],
+                "risk": use_cfg["risk"],
+            },
+            "no_cagr": {
+                "recommended": no_cfg["recommended"],
+                "buy": no_cfg["buy"],
+                "risk": no_cfg["risk"],
+            }
+        },
         "hybrid_weights": {
             "use_cagr": use_cfg["weights"],
             "no_cagr": no_cfg["weights"],
-        },
-        "meta": {
-            **meta_cfg,
-            "hybrid_config_updated_at": datetime.now(timezone.utc).isoformat(),
-        },
+        }
     }
-    _save_threshold_data(out)
+
+    try:
+        with sqlite3.connect("backend/finapp.db") as conn:
+            conn.execute(
+                "UPDATE users SET hybrid_config = ? WHERE id = ?",
+                (json.dumps(user_config_dict), user_id)
+            )
+            conn.commit()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save hybrid config: {e}")
 
     return {
         "saved": True,

@@ -11,8 +11,10 @@ class SessionService {
   static const _keyUsername = 'auth_username';
   static const _keyEmail = 'auth_email';
   static const _keyProfilePic = 'auth_profile_pic';
-  static const _keyPortfolioGoals = 'auth_portfolio_goals';
-  static const _keyMinat = 'auth_minat';
+  static const _keyPrefStabilitas = 'auth_pref_stabilitas';
+  static const _keyPrefPertumbuhan = 'auth_pref_pertumbuhan';
+  static const _keyPrefDividen = 'auth_pref_dividen';
+  static const _keyPrefRisiko = 'auth_pref_risiko';
   static const _keyBiometricEnabled = 'biometric_enabled';
   static const _keyLoggedOut = 'logged_out';
 
@@ -22,8 +24,10 @@ class SessionService {
     required String username,
     required String email,
     String? profilePic,
-    String? portfolioGoals,
-    String? minat,
+    int? prefStabilitas,
+    int? prefPertumbuhan,
+    int? prefDividen,
+    int? prefRisiko,
   }) async {
     await _storage.write(key: _keyToken, value: token);
     await _storage.write(key: _keyUsername, value: username);
@@ -31,11 +35,17 @@ class SessionService {
     if (profilePic != null) {
       await _storage.write(key: _keyProfilePic, value: profilePic);
     }
-    if (portfolioGoals != null) {
-      await _storage.write(key: _keyPortfolioGoals, value: portfolioGoals);
+    if (prefStabilitas != null) {
+      await _storage.write(key: _keyPrefStabilitas, value: prefStabilitas.toString());
     }
-    if (minat != null) {
-      await _storage.write(key: _keyMinat, value: minat);
+    if (prefPertumbuhan != null) {
+      await _storage.write(key: _keyPrefPertumbuhan, value: prefPertumbuhan.toString());
+    }
+    if (prefDividen != null) {
+      await _storage.write(key: _keyPrefDividen, value: prefDividen.toString());
+    }
+    if (prefRisiko != null) {
+      await _storage.write(key: _keyPrefRisiko, value: prefRisiko.toString());
     }
     // Clear the logged-out flag since we're actively logged in now.
     await _storage.delete(key: _keyLoggedOut);
@@ -61,14 +71,24 @@ class SessionService {
     return _storage.read(key: _keyProfilePic);
   }
 
-  /// Get stored portfolio goals.
-  static Future<String?> getPortfolioGoals() async {
-    return _storage.read(key: _keyPortfolioGoals);
+  static Future<int?> getPrefStabilitas() async {
+    final val = await _storage.read(key: _keyPrefStabilitas);
+    return val != null ? int.tryParse(val) : null;
   }
 
-  /// Get stored minat.
-  static Future<String?> getMinat() async {
-    return _storage.read(key: _keyMinat);
+  static Future<int?> getPrefPertumbuhan() async {
+    final val = await _storage.read(key: _keyPrefPertumbuhan);
+    return val != null ? int.tryParse(val) : null;
+  }
+
+  static Future<int?> getPrefDividen() async {
+    final val = await _storage.read(key: _keyPrefDividen);
+    return val != null ? int.tryParse(val) : null;
+  }
+
+  static Future<int?> getPrefRisiko() async {
+    final val = await _storage.read(key: _keyPrefRisiko);
+    return val != null ? int.tryParse(val) : null;
   }
 
 
@@ -102,8 +122,10 @@ class SessionService {
     await _storage.delete(key: _keyUsername);
     await _storage.delete(key: _keyEmail);
     await _storage.delete(key: _keyProfilePic);
-    await _storage.delete(key: _keyPortfolioGoals);
-    await _storage.delete(key: _keyMinat);
+    await _storage.delete(key: _keyPrefStabilitas);
+    await _storage.delete(key: _keyPrefPertumbuhan);
+    await _storage.delete(key: _keyPrefDividen);
+    await _storage.delete(key: _keyPrefRisiko);
     await _storage.delete(key: _keyLoggedOut);
   }
 

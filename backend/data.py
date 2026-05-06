@@ -768,7 +768,7 @@ def _apply_vikor_buy_decision(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _apply_fuzzy_ahp_topsis_buy_decision(df: pd.DataFrame) -> pd.DataFrame:
+def _apply_fuzzy_ahp_topsis_buy_decision(df: pd.DataFrame, custom_hybrid_cfg: dict | None = None) -> pd.DataFrame:
     """Terapkan Hybrid FUZZY AHP-TOPSIS untuk keputusan BUY/NO BUY di dashboard.
 
     Menggunakan mesin yang sama dengan detailed CAGR (decision_making.py).
@@ -827,7 +827,7 @@ def _apply_fuzzy_ahp_topsis_buy_decision(df: pd.DataFrame) -> pd.DataFrame:
             quality_score=qscore,
             discount_score=discount_score,
         )
-        base_eval = evaluate_cagr_methods([base_result], use_cagr=False)
+        base_eval = evaluate_cagr_methods([base_result], use_cagr=False, custom_hybrid_cfg=custom_hybrid_cfg)
         base_info = (((base_eval.get("methods") or {}).get("FUZZY_AHP_TOPSIS") or {}).get(ticker)) or {}
         base_decision = base_info.get("decision")
         base_score = base_info.get("score")
@@ -862,7 +862,7 @@ def _apply_fuzzy_ahp_topsis_buy_decision(df: pd.DataFrame) -> pd.DataFrame:
                 quality_score=qscore,
                 discount_score=discount_score,
             )
-            final_eval = evaluate_cagr_methods([final_result], use_cagr=True)
+            final_eval = evaluate_cagr_methods([final_result], use_cagr=True, custom_hybrid_cfg=custom_hybrid_cfg)
             final_info = (((final_eval.get("methods") or {}).get("FUZZY_AHP_TOPSIS") or {}).get(ticker)) or {}
         else:
             final_info = base_info
@@ -1028,7 +1028,7 @@ def _apply_payout_ratio_safety_check(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def get_stock_data(ticker_list):
+def get_stock_data(ticker_list, custom_hybrid_cfg: dict | None = None):
     all_data = []
     
     for symbol in ticker_list:
@@ -1298,7 +1298,7 @@ def get_stock_data(ticker_list):
 
     # Terapkan Hybrid FUZZY AHP-TOPSIS untuk keputusan BUY/NO BUY
     try:
-        df = _apply_fuzzy_ahp_topsis_buy_decision(df)
+        df = _apply_fuzzy_ahp_topsis_buy_decision(df, custom_hybrid_cfg=custom_hybrid_cfg)
         df = _apply_payout_ratio_safety_check(df)
         df = _apply_quality_verdict(df)
         df = _apply_discount_timing_verdict(df)

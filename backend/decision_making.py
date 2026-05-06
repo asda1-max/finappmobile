@@ -406,10 +406,10 @@ def _method_vikor_scores(norm_matrix: np.ndarray) -> np.ndarray:
     return _vikor_scores(norm_matrix, base_weights)
 
 
-def _hybrid_config(use_cagr: bool) -> tuple[np.ndarray, float, float, float]:
+def _hybrid_config(use_cagr: bool, custom_hybrid_cfg: dict | None = None) -> tuple[np.ndarray, float, float, float]:
     """Return (weights, recommended_thr, buy_thr, risk_thr) for hybrid mode.
 
-    Mendukung override dari `thresholds.json`:
+    Mendukung override dari `thresholds.json` atau custom user config:
     - hybrid_weights.use_cagr / hybrid_weights.no_cagr
     - hybrid.use_cagr / hybrid.no_cagr (recommended, buy, risk)
     """
@@ -444,7 +444,10 @@ def _hybrid_config(use_cagr: bool) -> tuple[np.ndarray, float, float, float]:
     weights = default_weights.copy()
     recommended_thr, buy_thr, risk_thr = default_thr
 
-    raw = _load_thresholds_cached()
+    if custom_hybrid_cfg:
+        raw = custom_hybrid_cfg
+    else:
+        raw = _load_thresholds_cached()
 
     if isinstance(raw, dict):
         w_cfg = raw.get("hybrid_weights") if isinstance(raw.get("hybrid_weights"), dict) else {}
@@ -475,8 +478,8 @@ def _hybrid_config(use_cagr: bool) -> tuple[np.ndarray, float, float, float]:
     return weights, recommended_thr, buy_thr, risk_thr
 
 
-def _method_hybrid_scores(full_matrix: np.ndarray, use_cagr: bool) -> tuple[np.ndarray, float, float, float]:
-    weights, rec_thr, buy_thr, risk_thr = _hybrid_config(use_cagr)
+def _method_hybrid_scores(full_matrix: np.ndarray, use_cagr: bool, custom_hybrid_cfg: dict | None = None) -> tuple[np.ndarray, float, float, float]:
+    weights, rec_thr, buy_thr, risk_thr = _hybrid_config(use_cagr, custom_hybrid_cfg)
     weights = weights / weights.sum()
     scores = _topsis_scores(full_matrix, weights) if full_matrix.size else np.array([], dtype=float)
     return scores, rec_thr, buy_thr, risk_thr
@@ -523,8 +526,8 @@ def _decision_vikor(score, mos):
     return "BUY" if score >= buy or (mos > mos_trigger and score >= mos_boost) else "NO BUY"
 
 
-def _decision_hybrid(score: float, use_cagr: bool) -> tuple[str, str]:
-    _, rec_thr, buy_thr, risk_thr = _hybrid_config(use_cagr)
+def _decision_hybrid(score: float, use_cagr: bool, custom_hybrid_cfg: dict | None = None) -> tuple[str, str]:
+    _, rec_thr, buy_thr, risk_thr = _hybrid_config(use_cagr, custom_hybrid_cfg)
 
     if score > rec_thr:
         category = "Recommended to Buy"
@@ -543,6 +546,7 @@ def evaluate_cagr_methods(
     results: List[CagrResult],
     *,
     use_cagr: bool = True,
+    custom_hybrid_cfg: dict | None = None,
 ) -> Dict[str, Dict[str, Dict[str, float]]]:
     """Hitung skor & keputusan BUY/NO BUY dengan VIKOR, TOPSIS, AHP, dan SAW.
 
@@ -572,7 +576,7 @@ def evaluate_cagr_methods(
     ahp_scores = _method_ahp_scores(norm_matrix)
     topsis = _method_topsis_scores(norm_matrix)
     vikor = _method_vikor_scores(norm_matrix)
-    hybrid_scores, _, _, _ = _method_hybrid_scores(full_matrix, use_cagr)
+    hybrid_scores, _, _, _ = _method_hybrid_scores(full_matrix, use_cagr, custom_hybrid_cfg)
 
     mos_by_ticker: Dict[str, float] = {r.ticker: float(r.mos or 0.0) for r in results}
 
@@ -598,7 +602,7 @@ def evaluate_cagr_methods(
                 decision = _decision_vikor(score, mos)
                 res[t] = {"score": score, "decision": decision}
             elif method == "FUZZY_AHP_TOPSIS":
-                decision, category = _decision_hybrid(score, use_cagr)
+                decision, category = _decision_hybrid(score, use_cagr, custom_hybrid_cfg)
                 res[t] = {"score": score, "decision": decision, "category": category}
 
         return res

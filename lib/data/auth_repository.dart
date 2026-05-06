@@ -57,8 +57,10 @@ class AuthRepository {
     String? username,
     String? email,
     String? password,
-    String? portfolioGoals,
-    String? minat,
+    int? prefStabilitas,
+    int? prefPertumbuhan,
+    int? prefDividen,
+    int? prefRisiko,
   }) async {
     final response = await _dio.put(
       ApiConstants.authMe,
@@ -67,8 +69,10 @@ class AuthRepository {
         if (username != null) 'username': username,
         if (email != null) 'email': email,
         if (password != null) 'password': password,
-        if (portfolioGoals != null) 'portfolio_goals': portfolioGoals,
-        if (minat != null) 'minat': minat,
+        if (prefStabilitas != null) 'pref_stabilitas': prefStabilitas,
+        if (prefPertumbuhan != null) 'pref_pertumbuhan': prefPertumbuhan,
+        if (prefDividen != null) 'pref_dividen': prefDividen,
+        if (prefRisiko != null) 'pref_risiko': prefRisiko,
       },
     );
     return UserModel.fromJson(
@@ -91,12 +95,14 @@ class AuthRepository {
   }
 
   /// Get Hybrid preset recommendations.
-  Future<Map<String, dynamic>> getHybridPreset(String goals, String minat) async {
+  Future<Map<String, dynamic>> getHybridPreset(int prefStabilitas, int prefPertumbuhan, int prefDividen, int prefRisiko) async {
     final response = await _dio.get(
       '/hybrid-preset',
       queryParameters: {
-        'goals': goals,
-        'minat': minat,
+        'pref_stabilitas': prefStabilitas,
+        'pref_pertumbuhan': prefPertumbuhan,
+        'pref_dividen': prefDividen,
+        'pref_risiko': prefRisiko,
       },
     );
     return response.data as Map<String, dynamic>;

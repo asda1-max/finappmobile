@@ -5,8 +5,10 @@ class UserModel {
   final String email;
   final String token;
   final String? profilePic;
-  final String? portfolioGoals;
-  final String? minat;
+  final int? prefStabilitas;
+  final int? prefPertumbuhan;
+  final int? prefDividen;
+  final int? prefRisiko;
 
   const UserModel({
     required this.userId,
@@ -14,8 +16,10 @@ class UserModel {
     required this.email,
     required this.token,
     this.profilePic,
-    this.portfolioGoals,
-    this.minat,
+    this.prefStabilitas,
+    this.prefPertumbuhan,
+    this.prefDividen,
+    this.prefRisiko,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json, {String? token}) {
@@ -25,8 +29,10 @@ class UserModel {
       email: json['email'] as String? ?? '',
       token: token ?? json['token'] as String? ?? '',
       profilePic: json['profile_pic'] as String?,
-      portfolioGoals: json['portfolio_goals'] as String?,
-      minat: json['minat'] as String?,
+      prefStabilitas: json['pref_stabilitas'] as int?,
+      prefPertumbuhan: json['pref_pertumbuhan'] as int?,
+      prefDividen: json['pref_dividen'] as int?,
+      prefRisiko: json['pref_risiko'] as int?,
     );
   }
 
@@ -36,7 +42,9 @@ class UserModel {
         'email': email,
         'token': token,
         'profile_pic': profilePic,
-        'portfolio_goals': portfolioGoals,
-        'minat': minat,
+        'pref_stabilitas': prefStabilitas,
+        'pref_pertumbuhan': prefPertumbuhan,
+        'pref_dividen': prefDividen,
+        'pref_risiko': prefRisiko,
       };
 }

@@ -21,11 +21,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final StockRepository _stockRepo = StockRepository();
   final ImagePicker _picker = ImagePicker();
   
-  String _username = '...';
-  String _email = '...';
+  String _username = '';
+  String _email = '';
   String? _profilePic;
-  String? _portfolioGoals;
-  String? _minat;
+  int? _prefStabilitas;
+  int? _prefPertumbuhan;
+  int? _prefDividen;
+  int? _prefRisiko;
   bool _isLoading = false;
 
   Map<String, dynamic>? _recommendedPreset;
@@ -40,27 +42,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final username = await SessionService.getUsername();
     final email = await SessionService.getEmail();
     final profilePic = await SessionService.getProfilePic();
-    final portfolioGoals = await SessionService.getPortfolioGoals();
-    final minat = await SessionService.getMinat();
+    var prefStabilitas = await SessionService.getPrefStabilitas();
+    var prefPertumbuhan = await SessionService.getPrefPertumbuhan();
+    var prefDividen = await SessionService.getPrefDividen();
+    var prefRisiko = await SessionService.getPrefRisiko();
+
+    if (prefStabilitas == null && prefPertumbuhan == null && prefDividen == null && prefRisiko == null) {
+      try {
+        final token = await SessionService.getToken();
+        if (token != null) {
+          final profile = await _authRepo.getProfile(token);
+          prefStabilitas = profile.prefStabilitas;
+          prefPertumbuhan = profile.prefPertumbuhan;
+          prefDividen = profile.prefDividen;
+          prefRisiko = profile.prefRisiko;
+          await SessionService.saveSession(
+            token: token,
+            username: profile.username,
+            email: profile.email,
+            profilePic: profile.profilePic,
+            prefStabilitas: prefStabilitas,
+            prefPertumbuhan: prefPertumbuhan,
+            prefDividen: prefDividen,
+            prefRisiko: prefRisiko,
+          );
+        }
+      } catch (_) {
+        // ignore profile fetch errors
+      }
+    }
     
     if (mounted) {
       setState(() {
         _username = username ?? 'User';
         _email = email ?? '-';
         _profilePic = profilePic;
-        _portfolioGoals = portfolioGoals;
-        _minat = minat;
+        _prefStabilitas = prefStabilitas;
+        _prefPertumbuhan = prefPertumbuhan;
+        _prefDividen = prefDividen;
+        _prefRisiko = prefRisiko;
       });
       _fetchRecommendation();
     }
   }
 
   Future<void> _fetchRecommendation() async {
-    if (_portfolioGoals != null || _minat != null) {
+    if (_prefStabilitas != null || _prefRisiko != null) {
       try {
         final preset = await _authRepo.getHybridPreset(
-          _portfolioGoals ?? '', 
-          _minat ?? ''
+          _prefStabilitas ?? 3, 
+          _prefPertumbuhan ?? 3,
+          _prefDividen ?? 3,
+          _prefRisiko ?? 3
         );
         if (mounted) {
           setState(() {
@@ -140,8 +173,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         username: _username,
         email: _email,
         profilePic: newUrl,
-        portfolioGoals: _portfolioGoals,
-        minat: _minat,
+        prefStabilitas: _prefStabilitas,
+        prefPertumbuhan: _prefPertumbuhan,
+        prefDividen: _prefDividen,
+        prefRisiko: _prefRisiko,
       );
       
       setState(() {
@@ -173,15 +208,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _editProfile() async {
-    final result = await showModalBottomSheet<Map<String, String?>>(
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => _EditProfileModal(
         initialUsername: _username,
         initialEmail: _email,
-        initialGoals: _portfolioGoals,
-        initialMinat: _minat,
+        initialPrefStabilitas: _prefStabilitas,
+        initialPrefPertumbuhan: _prefPertumbuhan,
+        initialPrefDividen: _prefDividen,
+        initialPrefRisiko: _prefRisiko,
       ),
     );
 
@@ -196,24 +233,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
           username: result['username'],
           email: result['email'],
           password: result['password'],
-          portfolioGoals: result['portfolio_goals'],
-          minat: result['minat'],
+          prefStabilitas: result['pref_stabilitas'],
+          prefPertumbuhan: result['pref_pertumbuhan'],
+          prefDividen: result['pref_dividen'],
+          prefRisiko: result['pref_risiko'],
         );
         
         await SessionService.saveSession(
-          token: token,
+          token: (await SessionService.getToken())!,
           username: updatedUser.username,
           email: updatedUser.email,
           profilePic: _profilePic,
-          portfolioGoals: updatedUser.portfolioGoals,
-          minat: updatedUser.minat,
+          prefStabilitas: updatedUser.prefStabilitas,
+          prefPertumbuhan: updatedUser.prefPertumbuhan,
+          prefDividen: updatedUser.prefDividen,
+          prefRisiko: updatedUser.prefRisiko,
         );
         
         setState(() {
           _username = updatedUser.username;
           _email = updatedUser.email;
-          _portfolioGoals = updatedUser.portfolioGoals;
-          _minat = updatedUser.minat;
+          _prefStabilitas = updatedUser.prefStabilitas;
+          _prefPertumbuhan = updatedUser.prefPertumbuhan;
+          _prefDividen = updatedUser.prefDividen;
+          _prefRisiko = updatedUser.prefRisiko;
         });
         
         await _fetchRecommendation();
@@ -371,7 +414,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  _portfolioGoals ?? 'Portfolio Strategist',
+                                  'Skala Risiko: ${_prefRisiko ?? 3}/5',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     color: AppColors.primary,
@@ -402,8 +445,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 10),
                         _InfoRow(label: 'Username', value: _username),
                         _InfoRow(label: 'Email', value: _email),
-                        _InfoRow(label: 'Portfolio Goals', value: _portfolioGoals ?? 'Belum diatur'),
-                        _InfoRow(label: 'Minat', value: _minat ?? 'Belum diatur'),
+                        _InfoRow(label: 'Stabilitas', value: '${_prefStabilitas ?? 3}/5'),
+                        _InfoRow(label: 'Pertumbuhan', value: '${_prefPertumbuhan ?? 3}/5'),
+                        _InfoRow(label: 'Dividen', value: '${_prefDividen ?? 3}/5'),
+                        _InfoRow(label: 'Toleransi Risiko', value: '${_prefRisiko ?? 3}/5'),
                       ],
                     ),
                   ),
@@ -430,7 +475,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            'Berdasarkan minat "${_minat ?? '-'}" dan tujuan "${_portfolioGoals ?? '-'}", sistem telah menghasilkan bobot MCDM yang optimal untuk Anda.',
+                            'Berdasarkan skala preferensi Anda, sistem telah menghasilkan bobot MCDM yang optimal.',
                             style: TextStyle(
                               fontSize: 12,
                               color: AppColors.textTertiary,
@@ -503,14 +548,18 @@ class _InfoRow extends StatelessWidget {
 class _EditProfileModal extends StatefulWidget {
   final String initialUsername;
   final String initialEmail;
-  final String? initialGoals;
-  final String? initialMinat;
+  final int? initialPrefStabilitas;
+  final int? initialPrefPertumbuhan;
+  final int? initialPrefDividen;
+  final int? initialPrefRisiko;
 
   const _EditProfileModal({
     required this.initialUsername,
     required this.initialEmail,
-    this.initialGoals,
-    this.initialMinat,
+    this.initialPrefStabilitas,
+    this.initialPrefPertumbuhan,
+    this.initialPrefDividen,
+    this.initialPrefRisiko,
   });
 
   @override
@@ -522,20 +571,10 @@ class _EditProfileModalState extends State<_EditProfileModal> {
   late TextEditingController _emailCtrl;
   late TextEditingController _passCtrl;
   
-  String? _selectedGoals;
-  String? _selectedMinat;
-
-  final List<String> _goalsOptions = [
-    'Aggressive Growth',
-    'Balanced',
-    'Capital Preservation',
-  ];
-
-  final List<String> _minatOptions = [
-    'Tech/Growth',
-    'Value Investing',
-    'Dividend Income',
-  ];
+  late double _prefStabilitas;
+  late double _prefPertumbuhan;
+  late double _prefDividen;
+  late double _prefRisiko;
 
   @override
   void initState() {
@@ -544,11 +583,10 @@ class _EditProfileModalState extends State<_EditProfileModal> {
     _emailCtrl = TextEditingController(text: widget.initialEmail);
     _passCtrl = TextEditingController();
     
-    _selectedGoals = widget.initialGoals;
-    if (!_goalsOptions.contains(_selectedGoals)) _selectedGoals = null;
-    
-    _selectedMinat = widget.initialMinat;
-    if (!_minatOptions.contains(_selectedMinat)) _selectedMinat = null;
+    _prefStabilitas = (widget.initialPrefStabilitas ?? 3).toDouble();
+    _prefPertumbuhan = (widget.initialPrefPertumbuhan ?? 3).toDouble();
+    _prefDividen = (widget.initialPrefDividen ?? 3).toDouble();
+    _prefRisiko = (widget.initialPrefRisiko ?? 3).toDouble();
   }
 
   @override
@@ -607,31 +645,14 @@ class _EditProfileModalState extends State<_EditProfileModal> {
               
               _buildTextField('New Password (Optional)', _passCtrl, Icons.lock_outline, obscure: true),
               const SizedBox(height: 24),
+              const Text('Preferensi Investasi (Skala 1-5)', style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
               
-              const Text('Portfolio Goals', style: TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _goalsOptions.map((goal) => _buildChip(
-                  label: goal,
-                  isSelected: _selectedGoals == goal,
-                  onTap: () => setState(() => _selectedGoals = goal),
-                )).toList(),
-              ),
-              const SizedBox(height: 20),
+              _buildSliderRow('Stabilitas', _prefStabilitas, (val) => setState(() => _prefStabilitas = val)),
+              _buildSliderRow('Pertumbuhan', _prefPertumbuhan, (val) => setState(() => _prefPertumbuhan = val)),
+              _buildSliderRow('Dividen', _prefDividen, (val) => setState(() => _prefDividen = val)),
+              _buildSliderRow('Toleransi Risiko', _prefRisiko, (val) => setState(() => _prefRisiko = val)),
               
-              const Text('Minat (Interest)', style: TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _minatOptions.map((minat) => _buildChip(
-                  label: minat,
-                  isSelected: _selectedMinat == minat,
-                  onTap: () => setState(() => _selectedMinat = minat),
-                )).toList(),
-              ),
               const SizedBox(height: 32),
               
               Row(
@@ -655,8 +676,10 @@ class _EditProfileModalState extends State<_EditProfileModal> {
                           'username': _userCtrl.text.isNotEmpty ? _userCtrl.text : null,
                           'email': _emailCtrl.text.isNotEmpty ? _emailCtrl.text : null,
                           'password': _passCtrl.text.isNotEmpty ? _passCtrl.text : null,
-                          'portfolio_goals': _selectedGoals,
-                          'minat': _selectedMinat,
+                          'pref_stabilitas': _prefStabilitas.toInt(),
+                          'pref_pertumbuhan': _prefPertumbuhan.toInt(),
+                          'pref_dividen': _prefDividen.toInt(),
+                          'pref_risiko': _prefRisiko.toInt(),
                         });
                       },
                       style: ElevatedButton.styleFrom(
@@ -688,29 +711,35 @@ class _EditProfileModalState extends State<_EditProfileModal> {
     );
   }
 
-  Widget _buildChip({required String label, required bool isSelected, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withValues(alpha: 0.15) : AppColors.card,
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.cardBorder,
-            width: 1,
-          ),
-          borderRadius: BorderRadius.circular(20),
+  Widget _buildSliderRow(String label, double value, ValueChanged<double> onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 14, fontWeight: FontWeight.w500)),
+            Text('${value.toInt()}', style: const TextStyle(color: AppColors.primary, fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? AppColors.primary : AppColors.textSecondary,
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        SliderTheme(
+          data: SliderThemeData(
+            activeTrackColor: AppColors.primary,
+            inactiveTrackColor: AppColors.cardBorder,
+            thumbColor: AppColors.primary,
+            overlayColor: AppColors.primary.withValues(alpha: 0.2),
+            valueIndicatorTextStyle: const TextStyle(color: Colors.white),
+          ),
+          child: Slider(
+            value: value,
+            min: 1,
+            max: 5,
+            divisions: 4,
+            label: value.toInt().toString(),
+            onChanged: onChanged,
           ),
         ),
-      ),
+      ],
     );
   }
 }
