@@ -389,7 +389,7 @@ class _HeroHeader extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            Formatters.price(stock.price),
+            Formatters.price(stock.price, ticker: stock.ticker),
             style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
@@ -399,6 +399,7 @@ class _HeroHeader extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _WeekRangeBar(
+            ticker: stock.ticker,
             low: stock.low52,
             high: stock.high52,
             current: stock.price,
@@ -410,9 +411,10 @@ class _HeroHeader extends StatelessWidget {
 }
 
 class _WeekRangeBar extends StatelessWidget {
+  final String ticker;
   final double low, high, current;
   const _WeekRangeBar(
-      {required this.low, required this.high, required this.current});
+      {required this.ticker, required this.low, required this.high, required this.current});
 
   @override
   Widget build(BuildContext context) {
@@ -425,10 +427,10 @@ class _WeekRangeBar extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('52W Low: ${Formatters.price(low)}',
+            Text('52W Low: ${Formatters.price(low, ticker: ticker)}',
                 style:
                     TextStyle(fontSize: 10, color: AppColors.textTertiary)),
-            Text('52W High: ${Formatters.price(high)}',
+            Text('52W High: ${Formatters.price(high, ticker: ticker)}',
                 style:
                     TextStyle(fontSize: 10, color: AppColors.textTertiary)),
           ],
@@ -557,11 +559,11 @@ class _FundamentalsGrid extends StatelessWidget {
         _FundamentalTile(label: 'EPS', value: stock.epsNow.toStringAsFixed(2)),
         _FundamentalTile(label: 'PER', value: Formatters.ratio(stock.perNow)),
         _FundamentalTile(
-            label: 'BVPS', value: Formatters.price(stock.bvpPerShare)),
+            label: 'BVPS', value: Formatters.price(stock.bvpPerShare, ticker: stock.ticker)),
         _FundamentalTile(label: 'ROE', value: Formatters.percent(stock.roe)),
         _FundamentalTile(label: 'PBV', value: Formatters.ratio(stock.pbv)),
         _FundamentalTile(
-            label: 'Graham #', value: Formatters.price(stock.grahamNumber)),
+            label: 'Graham #', value: Formatters.price(stock.grahamNumber, ticker: stock.ticker)),
         _FundamentalTile(label: 'MOS', value: Formatters.percent(stock.mos)),
         _FundamentalTile(
             label: 'Mkt Cap', value: Formatters.compact(stock.marketCap)),

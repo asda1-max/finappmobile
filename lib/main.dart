@@ -682,6 +682,50 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     setState(() => _isAdding = true);
+    
+    // Server-side format & existence validation
+    try {
+      final repo = ref.read(stockRepositoryProvider);
+      final validationResult = await repo.validateTicker(normalized);
+      final isServerValid = validationResult['valid'] as bool? ?? false;
+      
+      if (!isServerValid) {
+        final serverReason = validationResult['reason'] as String? ?? 'Ticker tidak valid.';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.error_outline_rounded,
+                      color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      serverReason,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: AppColors.sellRed,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+        setState(() => _isAdding = false);
+        return;
+      }
+    } catch (e) {
+      // If validation API fails (network error etc), we can either block or allow.
+      // We'll allow it and let the sync fail gracefully.
+      // ignore: avoid_print
+      print('[Dashboard] Validation API check failed: $e');
+    }
+
     await ref.read(tickerListProvider.notifier).addTicker(normalized);
     // Save to search history
     await LocalDbService.addSearchHistory(normalized);
@@ -1232,7 +1276,7 @@ class _StockCard extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      Formatters.price(stock.price),
+                      Formatters.price(stock.price, ticker: stock.ticker),
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,

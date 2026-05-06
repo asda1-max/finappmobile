@@ -373,7 +373,7 @@ _VALID_TICKER_RE = re.compile(r"^[A-Z0-9]{1,10}(\.[A-Z]{1,5})?$")
 _VALID_INDEX_RE = re.compile(r"^\^[A-Z0-9]{1,10}$")
 
 
-def _validate_ticker_format(ticker: str) -> tuple:
+def _validate_ticker_format(ticker: str, check_existence: bool = False) -> tuple:
     """Validate ticker format. Returns (is_valid, reason)."""
     t = (ticker or "").strip().upper()
     if not t:
@@ -387,9 +387,19 @@ def _validate_ticker_format(ticker: str) -> tuple:
     if t.startswith("."):
         return False, f"Format tidak valid: '{t}' — tidak boleh diawali titik"
     # Match valid ticker patterns
-    if _VALID_TICKER_RE.match(t) or _VALID_INDEX_RE.match(t):
-        return True, "OK"
-    return False, f"Format tidak valid: '{t}' — hanya huruf, angka, dan satu titik (contoh: BBCA.JK)"
+    if not (_VALID_TICKER_RE.match(t) or _VALID_INDEX_RE.match(t)):
+        return False, f"Format tidak valid: '{t}' — hanya huruf, angka, dan satu titik (contoh: BBCA.JK)"
+        
+    if check_existence:
+        try:
+            import yfinance as yf
+            stock = yf.Ticker(t)
+            if stock.history(period='1d').empty:
+                return False, f"Ticker '{t}' tidak ditemukan di pasar saham (yfinance)."
+        except Exception:
+            return False, f"Gagal memverifikasi ticker '{t}' di yfinance."
+            
+    return True, "OK"
 
 
 def _extract_user_id_from_auth(authorization: str, request=None) -> str:
@@ -1289,7 +1299,7 @@ async def get_stocks(tickers: str = Query(
 async def validate_ticker(payload: TickerPayload) -> dict:
     """Validate a ticker format before saving/fetching."""
     t = payload.ticker.strip().upper()
-    valid, reason = _validate_ticker_format(t)
+    valid, reason = _validate_ticker_format(t, check_existence=True)
     return {"valid": valid, "ticker": t, "reason": reason}
 
 
@@ -1364,8 +1374,8 @@ async def add_saved_ticker(payload: TickerPayload, request: Request, authorizati
     if not ticker:
         return {"tickers": _load_saved_tickers(user_id=user_id)}
 
-    # Validate format before saving
-    valid, reason = _validate_ticker_format(ticker)
+    # Validate format and existence before saving
+    valid, reason = _validate_ticker_format(ticker, check_existence=True)
     if not valid:
         raise HTTPException(status_code=400, detail=reason)
 

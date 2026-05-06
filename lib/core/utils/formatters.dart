@@ -10,13 +10,25 @@ class Formatters {
     decimalDigits: 0,
   );
 
+  static final _currencyUSD = NumberFormat.currency(
+    locale: 'en_US',
+    symbol: r'$',
+    decimalDigits: 2,
+  );
+
   static final _percentFormat = NumberFormat('0.##');
   static final _scoreFormat = NumberFormat('0.000');
   static final _ratioFormat = NumberFormat('0.##');
 
-  /// Format price in IDR: Rp 9,850
-  static String price(double value) {
+  /// Format price based on ticker suffix. Default is IDR.
+  static String price(double value, {String? ticker}) {
     if (value == 0) return '-';
+    
+    // Check if it's a foreign stock (not ending in .JK)
+    if (ticker != null && !ticker.toUpperCase().endsWith('.JK')) {
+      return _currencyUSD.format(value);
+    }
+    
     return _currencyIDR.format(value);
   }
 
