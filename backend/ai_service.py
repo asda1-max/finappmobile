@@ -165,7 +165,7 @@ Data saham:
 {stock_data}
 
 ATURAN:
-1. Gunakan format: "Menurut data yang telah diberikan, {TICKER} {kesimpulan singkat}.\nDikarenakan:" lalu 2–5 poin bullet singkat berbasis data.
+1. Gunakan format: "Menurut data yang telah diberikan, {{TICKER}} {{kesimpulan singkat}}.\nDikarenakan:" lalu 2–5 poin bullet singkat berbasis data.
 2. Setiap poin harus merujuk ke metrik spesifik (ROE, PBV, MOS, dll.) dengan angkanya.
 3. Sertakan risiko jika ada kelemahan meskipun keputusan BUY.
 4. Sertakan peluang jika ada peluang meskipun keputusan NO BUY.
