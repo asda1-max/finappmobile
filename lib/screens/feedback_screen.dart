@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../core/theme/app_colors.dart';
 import '../core/theme/input_decorators.dart';
 import '../core/services/session_service.dart';
@@ -26,25 +27,32 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   @override
   void initState() {
     super.initState();
+    _loadCurrentUserId();
     _loadFeedbacks();
+  }
+
+  Future<void> _loadCurrentUserId() async {
+    try {
+      final token = await SessionService.getToken();
+      if (token == null) return;
+      final parts = token.split('.');
+      if (parts.length != 3) return;
+      final payload = parts[1];
+      final normalized = base64Url.normalize(payload);
+      final decoded = jsonDecode(utf8.decode(base64Url.decode(normalized)))
+          as Map<String, dynamic>;
+      final userId = decoded['sub'] as String?;
+      if (mounted) {
+        setState(() => _currentUserId = userId);
+      }
+    } catch (_) {
+      // Ignore decode errors
+    }
   }
 
   Future<void> _loadFeedbacks() async {
     setState(() => _isLoading = true);
     try {
-      final token = await SessionService.getToken();
-      if (token != null) {
-        // Just extract user id from simple decode for checking ownership
-        final parts = token.split('.');
-        if (parts.length == 3) {
-          final payload = parts[1];
-          // We can't easily decode base64 without dart:convert but we can just use an endpoint if needed.
-          // Since we changed the backend to send user_id on login, let's just fetch it from session if we saved it.
-          // Wait, we didn't save user_id in SessionService. We'll rely on backend checking or just not show delete if not matched.
-          // Let's just fetch feedbacks first.
-        }
-      }
-      
       final feedbacks = await _repo.getFeedbacks();
       if (mounted) {
         setState(() {
@@ -289,12 +297,13 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                                     const SizedBox(width: 4),
                                     Text(f.rating, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 12)),
                                     const SizedBox(width: 8),
-                                    IconButton(
-                                      constraints: const BoxConstraints(),
-                                      padding: EdgeInsets.zero,
-                                      icon: const Icon(Icons.delete_outline, color: AppColors.sellRed, size: 16),
-                                      onPressed: () => _deleteFeedback(f.id),
-                                    ),
+                                    if (_currentUserId != null && f.userId == _currentUserId)
+                                      IconButton(
+                                        constraints: const BoxConstraints(),
+                                        padding: EdgeInsets.zero,
+                                        icon: const Icon(Icons.delete_outline, color: AppColors.sellRed, size: 16),
+                                        onPressed: () => _deleteFeedback(f.id),
+                                      ),
                                   ],
                                 ),
                               ],
