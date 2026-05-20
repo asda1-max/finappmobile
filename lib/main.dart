@@ -427,7 +427,14 @@ class _AppShellState extends ConsumerState<AppShell> {
     return Scaffold(
       body: Stack(
         children: [
-          IndexedStack(index: _currentIndex, children: screens),
+          Offstage(
+            offstage: _currentIndex >= 3,
+            child: IndexedStack(
+              index: _currentIndex < 3 ? _currentIndex : 0,
+              children: screens.sublist(0, 3),
+            ),
+          ),
+          if (_currentIndex >= 3) screens[_currentIndex],
           // Floating back pill for "More" sub-screens
           if (!showBottomNav)
             Positioned(

@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
+import 'package:sensors_plus/sensors_plus.dart';
 import '../core/theme/app_colors.dart';
 import '../widgets/glassmorphic_card.dart';
 
@@ -53,6 +55,8 @@ class _LetItRideScreenState extends State<LetItRideScreen> with SingleTickerProv
   bool _isPlaying = false;
   bool _isGameOver = false;
   bool _isHolding = false;
+  bool _isSensorMode = false;
+  StreamSubscription<AccelerometerEvent>? _accelSubscription;
   
   double _yPos = 0.0;
   double _velocity = 0.0;
@@ -90,10 +94,23 @@ class _LetItRideScreenState extends State<LetItRideScreen> with SingleTickerProv
       duration: const Duration(days: 365), 
     );
     _gameLoop.addListener(_updateGame);
+
+    _accelSubscription = accelerometerEventStream(samplingPeriod: SensorInterval.game).listen((event) {
+      if (!_isPlaying || _isGameOver || !_isSensorMode) return;
+      // In portrait mode, Y axis gravity is positive when phone is upright.
+      // If Y > 5.0, user is holding phone vertically (tilt up).
+      bool holding = event.y > 5.0;
+      if (_isHolding != holding) {
+        setState(() {
+          _isHolding = holding;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _accelSubscription?.cancel();
     _gameLoop.dispose();
     super.dispose();
   }
@@ -261,13 +278,18 @@ class _LetItRideScreenState extends State<LetItRideScreen> with SingleTickerProv
           children: [
             GestureDetector(
               onTapDown: (_) {
+                if (_isSensorMode) return;
                 if (_isPlaying && !_isGameOver) {
                   _isHolding = true;
                   HapticFeedback.selectionClick();
                 }
               },
-              onTapUp: (_) => _isHolding = false,
-              onTapCancel: () => _isHolding = false,
+              onTapUp: (_) {
+                if (!_isSensorMode) _isHolding = false;
+              },
+              onTapCancel: () {
+                if (!_isSensorMode) _isHolding = false;
+              },
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   return Container(
@@ -370,14 +392,42 @@ class _LetItRideScreenState extends State<LetItRideScreen> with SingleTickerProv
                         Text(
                           _isGameOver 
                               ? 'Max Portfolio: \$${_maxScore.toStringAsFixed(2)}'
-                              : 'Hold the screen to make the stock go up.\nRelease to let it drop.',
+                              : 'Hold the screen (or tilt your phone up in Sensor Mode) to make the stock go up.\nRelease/tilt down to let it drop.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 14,
                             color: AppColors.textSecondary,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              _isSensorMode ? Icons.screen_rotation_rounded : Icons.touch_app_rounded,
+                              size: 16,
+                              color: _isSensorMode ? AppColors.buyGreen : AppColors.textMuted,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Sensor Controls',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: _isSensorMode ? AppColors.textPrimary : AppColors.textMuted,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Switch(
+                              value: _isSensorMode,
+                              activeColor: AppColors.primary,
+                              onChanged: (val) {
+                                setState(() => _isSensorMode = val);
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
                           height: 50,
