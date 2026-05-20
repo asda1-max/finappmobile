@@ -50,7 +50,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   double _noCagrRisk = 0.455;
 
 
-  static const _defaultUseCagr = [0.18, 0.06, 0.12, 0.20, 0.15, 0.15, 0.08, 0.12];
+  static const _defaultUseCagr = [0.18, 0.06, 0.12, 0.20, 0.12, 0.12, 0.08, 0.12];
   static const _defaultNoCagr = [0.20, 0.00, 0.10, 0.30, 0.20, 0.20, 0.00, 0.00];
 
   @override
