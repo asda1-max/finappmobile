@@ -8,6 +8,7 @@ import '../core/constants/api_constants.dart';
 import '../widgets/glassmorphic_card.dart';
 import '../widgets/premium_alert_overlay.dart';
 import '../core/api_client.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class FeedbackScreen extends StatefulWidget {
   const FeedbackScreen({super.key});
@@ -272,19 +273,42 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    CircleAvatar(
-                                      radius: 12,
-                                      backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                                      backgroundImage: f.profilePic != null 
-                                          ? NetworkImage('${Uri.parse(ApiClient.instance.options.baseUrl).resolve(f.profilePic!).toString()}') 
-                                          : null,
-                                      child: f.profilePic == null 
-                                          ? Text(
-                                              (f.username ?? '?').isNotEmpty ? (f.username ?? '?')[0].toUpperCase() : '?',
-                                              style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.bold)
-                                            )
-                                          : null,
-                                    ),
+                                      Container(
+                                        width: 24,
+                                        height: 24,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: AppColors.primary.withValues(alpha: 0.2),
+                                        ),
+                                        child: ClipOval(
+                                          child: f.profilePic != null
+                                              ? CachedNetworkImage(
+                                                  imageUrl: '${Uri.parse(ApiClient.instance.options.baseUrl).resolve(f.profilePic!).toString()}',
+                                                  fit: BoxFit.cover,
+                                                  width: 24,
+                                                  height: 24,
+                                                  placeholder: (context, url) => const Center(
+                                                    child: SizedBox(
+                                                      width: 12,
+                                                      height: 12,
+                                                      child: CircularProgressIndicator(strokeWidth: 1.5),
+                                                    ),
+                                                  ),
+                                                  errorWidget: (context, url, error) => Center(
+                                                    child: Text(
+                                                      (f.username ?? '?').isNotEmpty ? (f.username ?? '?')[0].toUpperCase() : '?',
+                                                      style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.bold)
+                                                    ),
+                                                  ),
+                                                )
+                                              : Center(
+                                                  child: Text(
+                                                    (f.username ?? '?').isNotEmpty ? (f.username ?? '?')[0].toUpperCase() : '?',
+                                                    style: const TextStyle(fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.bold)
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
                                     const SizedBox(width: 8),
                                     Text(
                                       f.username ?? 'User',

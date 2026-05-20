@@ -10,7 +10,7 @@ import '../data/stock_repository.dart';
 import '../widgets/glassmorphic_card.dart';
 import '../widgets/premium_alert_overlay.dart';
 import '../core/api_client.dart';
-
+import 'package:cached_network_image/cached_network_image.dart';
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -461,25 +461,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Stack(
                             alignment: Alignment.bottomRight,
                             children: [
-                              CircleAvatar(
-                                radius: 34,
-                                backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                                backgroundImage: _profilePic != null && !_imageLoadError
-                                    ? NetworkImage('${Uri.parse(ApiClient.instance.options.baseUrl).resolve(_profilePic!).toString()}?v=$_imageKey')
-                                    : null,
-                                onBackgroundImageError: _profilePic != null ? (exception, stackTrace) {
-                                  if (mounted) setState(() => _imageLoadError = true);
-                                } : null,
-                                child: (_profilePic == null || _imageLoadError)
-                                    ? Text(
-                                        _username.isNotEmpty ? _username[0].toUpperCase() : '?',
-                                        style: const TextStyle(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.primary,
+                              Container(
+                                width: 68,
+                                height: 68,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppColors.primary.withValues(alpha: 0.2),
+                                ),
+                                child: ClipOval(
+                                  child: _profilePic != null
+                                      ? CachedNetworkImage(
+                                          imageUrl: '${Uri.parse(ApiClient.instance.options.baseUrl).resolve(_profilePic!).toString()}?v=$_imageKey',
+                                          fit: BoxFit.cover,
+                                          width: 68,
+                                          height: 68,
+                                          placeholder: (context, url) => const Center(
+                                            child: SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(strokeWidth: 2),
+                                            ),
+                                          ),
+                                          errorWidget: (context, url, error) {
+                                            return Center(
+                                              child: Text(
+                                                _username.isNotEmpty ? _username[0].toUpperCase() : '?',
+                                                style: const TextStyle(
+                                                  fontSize: 28,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: AppColors.primary,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        )
+                                      : Center(
+                                          child: Text(
+                                            _username.isNotEmpty ? _username[0].toUpperCase() : '?',
+                                            style: const TextStyle(
+                                              fontSize: 28,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
                                         ),
-                                      )
-                                    : null,
+                                ),
                               ),
                               Container(
                                 padding: const EdgeInsets.all(4),

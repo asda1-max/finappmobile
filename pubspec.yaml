@@ -61,6 +61,7 @@ dependencies:
   # Sensors
   sensors_plus: ^6.0.1
   image_picker: ^1.2.2
+  cached_network_image: ^3.4.1
   
   # Charts
   fl_chart: ^0.68.0
