@@ -1,11 +1,7 @@
-import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_timezone/flutter_timezone.dart';
-import 'package:timezone/data/latest.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
 
 class NotificationService {
   NotificationService._();
@@ -19,20 +15,11 @@ class NotificationService {
   static const String _priceChannelDesc =
       'Notifikasi alert pergerakan harga saham.';
 
-  // ── Channel: Daily Reminder ──
-  static const String _reminderChannelId = 'daily_reminder';
-  static const String _reminderChannelName = 'Pengingat Harian';
-  static const String _reminderChannelDesc =
-      'Pengingat harian untuk cek watchlist.';
-
-  // Use separate IDs: one for the immediate "show" and one for the
-  // scheduled repeating alarm so they never collide.
-  static const int _dailyReminderId = 2001;
-  static const int _dailyReminderImmediateId = 2002;
-
-  // Track a fallback timer for near-future reminders so we can cancel it
-  // if the user reschedules before it fires.
-  static Timer? _nearFutureTimer;
+  // ── Channel: Ticker Saved ──
+  static const String _tickerSavedChannelId = 'ticker_saved';
+  static const String _tickerSavedChannelName = 'Ticker Tersimpan';
+  static const String _tickerSavedChannelDesc =
+      'Notifikasi saat ticker baru berhasil disimpan ke database.';
 
   static bool _initialized = false;
 
@@ -44,30 +31,15 @@ class NotificationService {
     const initSettings = InitializationSettings(android: androidSettings);
 
     await _plugin.initialize(initSettings);
-    await _configureLocalTimeZone();
 
     final androidImpl = _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
     if (androidImpl != null) {
       await androidImpl.requestNotificationsPermission();
-      // Request exact alarm permission (Android 12+).
-      // Without this, zonedSchedule may silently fail or use inexact timing.
-      await androidImpl.requestExactAlarmsPermission();
     }
 
     _initialized = true;
-  }
-
-  static Future<void> _configureLocalTimeZone() async {
-    tz.initializeTimeZones();
-    try {
-      final tzName = await FlutterTimezone.getLocalTimezone();
-      tz.setLocalLocation(tz.getLocation(tzName));
-    } catch (_) {
-      // Fallback to UTC if local timezone cannot be resolved.
-      tz.setLocalLocation(tz.getLocation('UTC'));
-    }
   }
 
   // ── Test Notification ──
@@ -167,167 +139,52 @@ class NotificationService {
     );
   }
 
-  // ── Daily Reminder ──
+  // ── Ticker Saved Notification ──
 
-  static Future<void> scheduleDailyReminder({
-    required int hour,
-    required int minute,
+  /// Show a notification when a ticker is successfully fetched and saved
+  /// to the database.
+  static Future<void> showTickerSaved({
+    required String tickerName,
   }) async {
     if (!_initialized) {
       await init();
     }
 
-    // ── 1. Clean up ALL previous reminders ──
-    // Cancel the scheduled repeating alarm
-    await _plugin.cancel(_dailyReminderId);
-    // Cancel any immediate notification from a previous "show now"
-    await _plugin.cancel(_dailyReminderImmediateId);
-    // Cancel any pending near-future timer
-    _nearFutureTimer?.cancel();
-    _nearFutureTimer = null;
-
-    final now = tz.TZDateTime.now(tz.local);
-    final scheduled = _nextInstanceOfTime(hour, minute);
-    final diffSeconds = scheduled.difference(now).inSeconds;
-
-    final formattedTime =
-        '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
-
-    const reminderAndroid = AndroidNotificationDetails(
-      _reminderChannelId,
-      _reminderChannelName,
-      channelDescription: _reminderChannelDesc,
+    final androidDetails = AndroidNotificationDetails(
+      _tickerSavedChannelId,
+      _tickerSavedChannelName,
+      channelDescription: _tickerSavedChannelDesc,
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
       enableVibration: true,
-      color: Color(0xFFD4A843),
-      ledColor: Color(0xFFD4A843),
-      ledOnMs: 1000,
-      ledOffMs: 500,
+      color: const Color(0xFF5B9A6F),
+      ledColor: const Color(0xFF5B9A6F),
+      ledOnMs: 800,
+      ledOffMs: 400,
       icon: '@mipmap/ic_launcher',
       styleInformation: BigTextStyleInformation(
-        '⏰ Waktunya cek watchlist!\n\n'
-        'Lihat perubahan harga terbaru dan peluang baru di portofoliomu.\n'
-        'Tetap update setiap hari untuk keputusan investasi yang lebih baik. 📊',
+        '✅ $tickerName berhasil di simpan ke database.\n\n'
+        'Data fundamental telah diambil dan tersimpan di watchlist kamu.\n'
+        'Buka Tick Watchers untuk melihat analisis lengkapnya.',
         htmlFormatBigText: false,
-        contentTitle: '⏰ Pengingat Harian',
-        summaryText: 'Tick Watchers',
+        contentTitle: '💾 Ticker Tersimpan',
+        summaryText: tickerName,
       ),
-      category: AndroidNotificationCategory.reminder,
+      category: AndroidNotificationCategory.status,
       visibility: NotificationVisibility.public,
+      autoCancel: true,
     );
-    const reminderDetails = NotificationDetails(android: reminderAndroid);
+    final details = NotificationDetails(android: androidDetails);
 
-    debugPrint('[NotificationService] scheduleDailyReminder → '
-        '$formattedTime (in ${diffSeconds}s)');
+    debugPrint('[NotificationService] showTickerSaved → $tickerName');
 
-    // ── 2. Handle "now or very soon" (within 30s) ──
-    if (diffSeconds <= 30) {
-      // Show immediately using a DIFFERENT id so the scheduled alarm
-      // (id 2001) is not blocked.
-      await _plugin.show(
-        _dailyReminderImmediateId,
-        '⏰ Pengingat Harian',
-        'Cek watchlist kamu hari ini — $formattedTime ✅',
-        reminderDetails,
-      );
-
-      // Schedule the repeating daily alarm for TOMORROW
-      final tomorrow = scheduled.add(const Duration(days: 1));
-      await _scheduleRepeating(tomorrow, formattedTime, reminderDetails);
-      return;
-    }
-
-    // ── 3. Handle near-future (within 5 minutes) ──
-    // Android Doze can delay inexact alarms 10-15 min, and even exact
-    // alarms may need special permission. Use a Dart Timer as a reliable
-    // fallback for the first occurrence, then set the daily repeating alarm.
-    if (diffSeconds <= 300) {
-      debugPrint('[NotificationService] Using Timer fallback '
-          'for near-future (${diffSeconds}s)');
-
-      _nearFutureTimer = Timer(Duration(seconds: diffSeconds), () async {
-        await _plugin.show(
-          _dailyReminderImmediateId,
-          '⏰ Pengingat Harian',
-          'Cek watchlist kamu hari ini — $formattedTime ✅',
-          reminderDetails,
-        );
-      });
-
-      // Also schedule the repeating daily alarm (it may fire late today
-      // due to Doze, but from tomorrow it will be on time).
-      await _scheduleRepeating(scheduled, formattedTime, reminderDetails);
-      return;
-    }
-
-    // ── 4. Normal future scheduling ──
-    await _scheduleRepeating(scheduled, formattedTime, reminderDetails);
-  }
-
-  /// Schedule a repeating daily alarm via [zonedSchedule].
-  /// Tries exact mode first; falls back to inexact if permission is denied.
-  static Future<void> _scheduleRepeating(
-    tz.TZDateTime scheduledDate,
-    String formattedTime,
-    NotificationDetails details,
-  ) async {
-    try {
-      await _plugin.zonedSchedule(
-        _dailyReminderId,
-        '⏰ Pengingat Harian',
-        'Cek watchlist kamu hari ini — $formattedTime ✅',
-        scheduledDate,
-        details,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      );
-      debugPrint('[NotificationService] Scheduled EXACT alarm at '
-          '$scheduledDate');
-    } catch (e) {
-      // Exact alarm permission not granted → fall back to inexact.
-      debugPrint('[NotificationService] Exact alarm failed ($e), '
-          'falling back to inexact');
-      await _plugin.zonedSchedule(
-        _dailyReminderId,
-        '⏰ Pengingat Harian',
-        'Cek watchlist kamu hari ini — $formattedTime ✅',
-        scheduledDate,
-        details,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      );
-    }
-  }
-
-  static Future<void> cancelDailyReminder() async {
-    if (!_initialized) {
-      await init();
-    }
-    await _plugin.cancel(_dailyReminderId);
-    await _plugin.cancel(_dailyReminderImmediateId);
-    _nearFutureTimer?.cancel();
-    _nearFutureTimer = null;
-  }
-
-  static tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduled = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      hour,
-      minute,
+    await _plugin.show(
+      tickerName.hashCode & 0x7fffffff,
+      '💾 Ticker Tersimpan',
+      '$tickerName berhasil di simpan ke database',
+      details,
     );
-    if (scheduled.isBefore(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
-    }
-    return scheduled;
   }
 }
+

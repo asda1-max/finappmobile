@@ -35,8 +35,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _alertTicker = '';
   double _alertThreshold = 5.0;
   List<String> _alertCandidates = [];
-  bool _reminderEnabled = false;
-  TimeOfDay _reminderTime = const TimeOfDay(hour: 9, minute: 0);
+
 
   // use_cagr weights
   final _useCagrWeights = List<double>.filled(8, 0.0);
@@ -59,7 +58,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     super.initState();
     _loadConfig();
     _loadAlertPrefs();
-    _loadReminderPrefs();
     _loadProfilePreset();
   }
   
@@ -157,23 +155,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _alertThreshold.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
   }
 
-  void _loadReminderPrefs() {
-    _reminderEnabled =
-        LocalDbService.getPreference<bool>('reminder_enabled') ?? false;
-    final hourRaw = LocalDbService.getPreference<num>('reminder_hour') ?? 9;
-    final minuteRaw =
-        LocalDbService.getPreference<num>('reminder_minute') ?? 0;
-    final hour = hourRaw.toInt().clamp(0, 23).toInt();
-    final minute = minuteRaw.toInt().clamp(0, 59).toInt();
-    _reminderTime = TimeOfDay(hour: hour, minute: minute);
-    if (_reminderEnabled) {
-      NotificationService.scheduleDailyReminder(
-        hour: _reminderTime.hour,
-        minute: _reminderTime.minute,
-      );
-    }
-  }
-
   void _saveAlertPrefs() {
     final parsed = double.tryParse(_alertThresholdController.text);
     if (parsed == null || parsed <= 0) {
@@ -185,34 +166,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     LocalDbService.savePreference('alert_ticker', _alertTicker);
     LocalDbService.savePreference('alert_threshold', _alertThreshold);
     setState(() => _statusMsg = 'Alert harga tersimpan ✓');
-  }
-
-  Future<void> _saveReminderPrefs() async {
-    await LocalDbService.savePreference('reminder_enabled', _reminderEnabled);
-    await LocalDbService.savePreference('reminder_hour', _reminderTime.hour);
-    await LocalDbService.savePreference(
-        'reminder_minute', _reminderTime.minute);
-
-    if (_reminderEnabled) {
-      await NotificationService.scheduleDailyReminder(
-        hour: _reminderTime.hour,
-        minute: _reminderTime.minute,
-      );
-      setState(() =>
-          _statusMsg = 'Pengingat diatur ${_reminderTime.format(context)} ✓');
-    } else {
-      await NotificationService.cancelDailyReminder();
-      setState(() => _statusMsg = 'Pengingat dimatikan');
-    }
-  }
-
-  Future<void> _pickReminderTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _reminderTime,
-    );
-    if (picked == null) return;
-    setState(() => _reminderTime = picked);
   }
 
   Future<void> _loadConfig() async {
@@ -776,219 +729,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   ),
                                 ),
                               ],
-                            ],
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Daily Reminder Settings — Premium
-            GlassmorphicCard(
-              borderColor: _reminderEnabled
-                  ? AppColors.primary.withValues(alpha: 0.4)
-                  : null,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: _reminderEnabled
-                                ? [
-                                    AppColors.primary.withValues(alpha: 0.3),
-                                    AppColors.primary.withValues(alpha: 0.1),
-                                  ]
-                                : [
-                                    AppColors.textMuted.withValues(alpha: 0.15),
-                                    AppColors.textMuted.withValues(alpha: 0.05),
-                                  ],
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _reminderEnabled
-                                ? AppColors.primary.withValues(alpha: 0.4)
-                                : AppColors.cardBorder,
-                          ),
-                        ),
-                        child: Icon(
-                          _reminderEnabled
-                              ? Icons.alarm_on_rounded
-                              : Icons.alarm_off_rounded,
-                          size: 16,
-                          color: _reminderEnabled
-                              ? AppColors.primary
-                              : AppColors.textMuted,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Pengingat Harian',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: _reminderEnabled
-                                        ? AppColors.primary
-                                        : AppColors.textMuted,
-                                    boxShadow: _reminderEnabled
-                                        ? [
-                                            BoxShadow(
-                                              color: AppColors.primary
-                                                  .withValues(alpha: 0.5),
-                                              blurRadius: 4,
-                                              spreadRadius: 1,
-                                            ),
-                                          ]
-                                        : null,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _reminderEnabled
-                                      ? 'AKTIF — ${_reminderTime.format(context)}'
-                                      : 'NONAKTIF',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800,
-                                    color: _reminderEnabled
-                                        ? AppColors.primary
-                                        : AppColors.textMuted,
-                                    letterSpacing: 1.2,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      Switch(
-                        value: _reminderEnabled,
-                        onChanged: (v) async {
-                          setState(() => _reminderEnabled = v);
-                          await _saveReminderPrefs();
-                        },
-                        activeTrackColor: AppColors.primary,
-                        thumbColor: WidgetStateProperty.resolveWith(
-                          (states) => states.contains(WidgetState.selected)
-                              ? Colors.white
-                              : AppColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Pengingat harian untuk cek watchlist dan peluang baru.',
-                    style: TextStyle(fontSize: 11, color: AppColors.textTertiary),
-                  ),
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutCubic,
-                    child: _reminderEnabled
-                        ? Column(
-                            children: [
-                              const SizedBox(height: 14),
-                              LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final isNarrow = constraints.maxWidth < 360;
-
-                                  final timePicker = GestureDetector(
-                                    onTap: _pickReminderTime,
-                                    child: Container(
-                                      height: 52,
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 14),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.surface,
-                                        borderRadius:
-                                            BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: AppColors.primary
-                                              .withValues(alpha: 0.3),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.schedule_rounded,
-                                              size: 18,
-                                              color: AppColors.primary),
-                                          const SizedBox(width: 10),
-                                          Text(
-                                            _reminderTime.format(context),
-                                            style: const TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w800,
-                                              color: AppColors.primary,
-                                            ),
-                                          ),
-                                          const Spacer(),
-                                          Icon(Icons.edit_rounded,
-                                              size: 14,
-                                              color: AppColors.textMuted),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-
-                                  final saveButton = SizedBox(
-                                    height: 52,
-                                    child: ElevatedButton.icon(
-                                      onPressed: _saveReminderPrefs,
-                                      icon: const Icon(Icons.save_rounded,
-                                          size: 16),
-                                      label: const Text('Simpan'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppColors.primary,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-
-                                  if (isNarrow) {
-                                    return Column(
-                                      children: [
-                                        timePicker,
-                                        const SizedBox(height: 10),
-                                        SizedBox(
-                                            width: double.infinity,
-                                            child: saveButton),
-                                      ],
-                                    );
-                                  }
-
-                                  return Row(
-                                    children: [
-                                      Expanded(child: timePicker),
-                                      const SizedBox(width: 10),
-                                      saveButton,
-                                    ],
-                                  );
-                                },
-                              ),
                             ],
                           )
                         : const SizedBox.shrink(),

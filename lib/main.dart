@@ -729,6 +729,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     await ref.read(tickerListProvider.notifier).addTicker(normalized);
     // Save to search history
     await LocalDbService.addSearchHistory(normalized);
+    // Show notification on successful save
+    NotificationService.showTickerSaved(tickerName: normalized);
     _controller.clear();
     FocusScope.of(context).unfocus();
     setState(() => _isAdding = false);
