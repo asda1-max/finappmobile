@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:dio/dio.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/input_decorators.dart';
 import '../core/services/session_service.dart';
@@ -193,6 +194,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           accentColor: AppColors.buyGreen,
         );
       }
+    } on DioException catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        final detail = e.response?.data is Map ? e.response?.data['detail'] : null;
+        PremiumAlertOverlay.showStatus(
+          context,
+          title: 'Upload Gagal',
+          message: detail?.toString() ?? 'Gagal mengunggah foto profil.',
+          icon: Icons.error_outline_rounded,
+          accentColor: AppColors.sellRed,
+        );
+      }
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
@@ -256,16 +269,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             accentColor: AppColors.buyGreen,
           );
         }
-      } catch (e) {
+      } on DioException catch (e) {
         if (mounted) {
-          String errMsg = e.toString();
-          if (errMsg.contains('400')) {
-            errMsg = 'Username or email may already be taken.';
-          }
+          final detail = e.response?.data is Map ? e.response?.data['detail'] : null;
           PremiumAlertOverlay.showStatus(
             context,
             title: 'Update Gagal',
-            message: errMsg,
+            message: detail?.toString() ?? 'Gagal memperbarui profil.',
+            icon: Icons.error_outline_rounded,
+            accentColor: AppColors.sellRed,
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          PremiumAlertOverlay.showStatus(
+            context,
+            title: 'Update Gagal',
+            message: e.toString(),
             icon: Icons.error_outline_rounded,
             accentColor: AppColors.sellRed,
           );
@@ -332,6 +352,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             message: 'Perubahan preferensi berhasil disimpan',
             icon: Icons.check_circle_rounded,
             accentColor: AppColors.buyGreen,
+          );
+        }
+      } on DioException catch (e) {
+        if (mounted) {
+          final detail = e.response?.data is Map ? e.response?.data['detail'] : null;
+          PremiumAlertOverlay.showStatus(
+            context,
+            title: 'Update Gagal',
+            message: detail?.toString() ?? 'Gagal memperbarui preferensi.',
+            icon: Icons.error_outline_rounded,
+            accentColor: AppColors.sellRed,
           );
         }
       } catch (e) {

@@ -170,6 +170,26 @@ def _init_db() -> None:
             conn.execute("ALTER TABLE users ADD COLUMN minat TEXT")
         except sqlite3.OperationalError:
             pass
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN pref_stabilitas INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN pref_pertumbuhan INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN pref_dividen INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN pref_risiko INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN hybrid_config TEXT")
+        except sqlite3.OperationalError:
+            pass
 
         # ── Migrate saved_tickers to per-user ──
         # Check if old schema (no user_id) exists and migrate
