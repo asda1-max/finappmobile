@@ -215,10 +215,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (ctx) => _EditProfileModal(
         initialUsername: _username,
         initialEmail: _email,
-        initialPrefStabilitas: _prefStabilitas,
-        initialPrefPertumbuhan: _prefPertumbuhan,
-        initialPrefDividen: _prefDividen,
-        initialPrefRisiko: _prefRisiko,
       ),
     );
 
@@ -233,10 +229,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           username: result['username'],
           email: result['email'],
           password: result['password'],
-          prefStabilitas: result['pref_stabilitas'],
-          prefPertumbuhan: result['pref_pertumbuhan'],
-          prefDividen: result['pref_dividen'],
-          prefRisiko: result['pref_risiko'],
         );
         
         await SessionService.saveSession(
@@ -253,13 +245,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           _username = updatedUser.username;
           _email = updatedUser.email;
-          _prefStabilitas = updatedUser.prefStabilitas;
-          _prefPertumbuhan = updatedUser.prefPertumbuhan;
-          _prefDividen = updatedUser.prefDividen;
-          _prefRisiko = updatedUser.prefRisiko;
         });
-        
-        await _fetchRecommendation();
         
         if (mounted) {
           PremiumAlertOverlay.showStatus(
@@ -280,6 +266,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
             context,
             title: 'Update Gagal',
             message: errMsg,
+            icon: Icons.error_outline_rounded,
+            accentColor: AppColors.sellRed,
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+    }
+  }
+
+  Future<void> _editPreferences() async {
+    final result = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _EditPreferencesModal(
+        initialPrefStabilitas: _prefStabilitas,
+        initialPrefPertumbuhan: _prefPertumbuhan,
+        initialPrefDividen: _prefDividen,
+        initialPrefRisiko: _prefRisiko,
+      ),
+    );
+
+    if (result != null) {
+      setState(() => _isLoading = true);
+      try {
+        final token = await SessionService.getToken();
+        if (token == null) throw Exception("No token");
+        
+        final updatedUser = await _authRepo.updateProfile(
+          token,
+          prefStabilitas: result['pref_stabilitas'],
+          prefPertumbuhan: result['pref_pertumbuhan'],
+          prefDividen: result['pref_dividen'],
+          prefRisiko: result['pref_risiko'],
+        );
+        
+        await SessionService.saveSession(
+          token: (await SessionService.getToken())!,
+          username: updatedUser.username,
+          email: updatedUser.email,
+          profilePic: _profilePic,
+          prefStabilitas: updatedUser.prefStabilitas,
+          prefPertumbuhan: updatedUser.prefPertumbuhan,
+          prefDividen: updatedUser.prefDividen,
+          prefRisiko: updatedUser.prefRisiko,
+        );
+        
+        setState(() {
+          _prefStabilitas = updatedUser.prefStabilitas;
+          _prefPertumbuhan = updatedUser.prefPertumbuhan;
+          _prefDividen = updatedUser.prefDividen;
+          _prefRisiko = updatedUser.prefRisiko;
+        });
+        
+        await _fetchRecommendation();
+        
+        if (mounted) {
+          PremiumAlertOverlay.showStatus(
+            context,
+            title: 'Preferensi Diperbarui',
+            message: 'Perubahan preferensi berhasil disimpan',
+            icon: Icons.check_circle_rounded,
+            accentColor: AppColors.buyGreen,
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          PremiumAlertOverlay.showStatus(
+            context,
+            title: 'Update Gagal',
+            message: e.toString(),
             icon: Icons.error_outline_rounded,
             accentColor: AppColors.sellRed,
           );
@@ -435,7 +495,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Ringkasan Profil',
+                          'Informasi Akun',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -445,6 +505,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 10),
                         _InfoRow(label: 'Username', value: _username),
                         _InfoRow(label: 'Email', value: _email),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  GlassmorphicCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Preferensi Investasi',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit_rounded, color: AppColors.textSecondary, size: 20),
+                              onPressed: _editPreferences,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
                         _InfoRow(label: 'Stabilitas', value: '${_prefStabilitas ?? 3}/5'),
                         _InfoRow(label: 'Pertumbuhan', value: '${_prefPertumbuhan ?? 3}/5'),
                         _InfoRow(label: 'Dividen', value: '${_prefDividen ?? 3}/5'),
@@ -548,18 +637,10 @@ class _InfoRow extends StatelessWidget {
 class _EditProfileModal extends StatefulWidget {
   final String initialUsername;
   final String initialEmail;
-  final int? initialPrefStabilitas;
-  final int? initialPrefPertumbuhan;
-  final int? initialPrefDividen;
-  final int? initialPrefRisiko;
 
   const _EditProfileModal({
     required this.initialUsername,
     required this.initialEmail,
-    this.initialPrefStabilitas,
-    this.initialPrefPertumbuhan,
-    this.initialPrefDividen,
-    this.initialPrefRisiko,
   });
 
   @override
@@ -571,22 +652,12 @@ class _EditProfileModalState extends State<_EditProfileModal> {
   late TextEditingController _emailCtrl;
   late TextEditingController _passCtrl;
   
-  late double _prefStabilitas;
-  late double _prefPertumbuhan;
-  late double _prefDividen;
-  late double _prefRisiko;
-
   @override
   void initState() {
     super.initState();
     _userCtrl = TextEditingController(text: widget.initialUsername);
     _emailCtrl = TextEditingController(text: widget.initialEmail);
     _passCtrl = TextEditingController();
-    
-    _prefStabilitas = (widget.initialPrefStabilitas ?? 3).toDouble();
-    _prefPertumbuhan = (widget.initialPrefPertumbuhan ?? 3).toDouble();
-    _prefDividen = (widget.initialPrefDividen ?? 3).toDouble();
-    _prefRisiko = (widget.initialPrefRisiko ?? 3).toDouble();
   }
 
   @override
@@ -644,15 +715,6 @@ class _EditProfileModalState extends State<_EditProfileModal> {
               const SizedBox(height: 16),
               
               _buildTextField('New Password (Optional)', _passCtrl, Icons.lock_outline, obscure: true),
-              const SizedBox(height: 24),
-              const Text('Preferensi Investasi (Skala 1-5)', style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              
-              _buildSliderRow('Stabilitas', _prefStabilitas, (val) => setState(() => _prefStabilitas = val)),
-              _buildSliderRow('Pertumbuhan', _prefPertumbuhan, (val) => setState(() => _prefPertumbuhan = val)),
-              _buildSliderRow('Dividen', _prefDividen, (val) => setState(() => _prefDividen = val)),
-              _buildSliderRow('Toleransi Risiko', _prefRisiko, (val) => setState(() => _prefRisiko = val)),
-              
               const SizedBox(height: 32),
               
               Row(
@@ -672,14 +734,23 @@ class _EditProfileModalState extends State<_EditProfileModal> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
+                        if (_userCtrl.text == widget.initialUsername &&
+                            _emailCtrl.text == widget.initialEmail &&
+                            _passCtrl.text.isEmpty) {
+                          PremiumAlertOverlay.showStatus(
+                            context,
+                            title: 'Tidak Ada Perubahan',
+                            message: 'Anda belum mengubah data profil apapun.',
+                            icon: Icons.info_outline_rounded,
+                            accentColor: AppColors.sellRed,
+                          );
+                          return;
+                        }
+                        
                         Navigator.pop(context, {
-                          'username': _userCtrl.text.isNotEmpty ? _userCtrl.text : null,
-                          'email': _emailCtrl.text.isNotEmpty ? _emailCtrl.text : null,
+                          'username': _userCtrl.text != widget.initialUsername ? _userCtrl.text : null,
+                          'email': _emailCtrl.text != widget.initialEmail ? _emailCtrl.text : null,
                           'password': _passCtrl.text.isNotEmpty ? _passCtrl.text : null,
-                          'pref_stabilitas': _prefStabilitas.toInt(),
-                          'pref_pertumbuhan': _prefPertumbuhan.toInt(),
-                          'pref_dividen': _prefDividen.toInt(),
-                          'pref_risiko': _prefRisiko.toInt(),
                         });
                       },
                       style: ElevatedButton.styleFrom(
@@ -707,6 +778,125 @@ class _EditProfileModalState extends State<_EditProfileModal> {
       decoration: AppInputDecoration.standard(
         labelText: label,
         prefixIcon: Icon(icon, color: AppColors.textTertiary, size: 20),
+      ),
+    );
+  }
+}
+
+class _EditPreferencesModal extends StatefulWidget {
+  final int? initialPrefStabilitas;
+  final int? initialPrefPertumbuhan;
+  final int? initialPrefDividen;
+  final int? initialPrefRisiko;
+
+  const _EditPreferencesModal({
+    this.initialPrefStabilitas,
+    this.initialPrefPertumbuhan,
+    this.initialPrefDividen,
+    this.initialPrefRisiko,
+  });
+
+  @override
+  State<_EditPreferencesModal> createState() => _EditPreferencesModalState();
+}
+
+class _EditPreferencesModalState extends State<_EditPreferencesModal> {
+  late double _prefStabilitas;
+  late double _prefPertumbuhan;
+  late double _prefDividen;
+  late double _prefRisiko;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefStabilitas = (widget.initialPrefStabilitas ?? 3).toDouble();
+    _prefPertumbuhan = (widget.initialPrefPertumbuhan ?? 3).toDouble();
+    _prefDividen = (widget.initialPrefDividen ?? 3).toDouble();
+    _prefRisiko = (widget.initialPrefRisiko ?? 3).toDouble();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: EdgeInsets.only(top: 60),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, 40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.textTertiary.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Edit Preferensi Investasi',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              _buildSliderRow('Stabilitas', _prefStabilitas, (val) => setState(() => _prefStabilitas = val)),
+              _buildSliderRow('Pertumbuhan', _prefPertumbuhan, (val) => setState(() => _prefPertumbuhan = val)),
+              _buildSliderRow('Dividen', _prefDividen, (val) => setState(() => _prefDividen = val)),
+              _buildSliderRow('Toleransi Risiko', _prefRisiko, (val) => setState(() => _prefRisiko = val)),
+              
+              const SizedBox(height: 32),
+              
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(color: AppColors.textTertiary),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context, {
+                          'pref_stabilitas': _prefStabilitas.toInt(),
+                          'pref_pertumbuhan': _prefPertumbuhan.toInt(),
+                          'pref_dividen': _prefDividen.toInt(),
+                          'pref_risiko': _prefRisiko.toInt(),
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Save Changes', style: TextStyle(color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
