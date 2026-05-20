@@ -95,7 +95,9 @@ class _LetItRideScreenState extends State<LetItRideScreen> with SingleTickerProv
     );
     _gameLoop.addListener(_updateGame);
 
-    _accelSubscription = accelerometerEventStream(samplingPeriod: SensorInterval.game).listen((event) {
+    _accelSubscription = accelerometerEventStream(
+      samplingPeriod: const Duration(milliseconds: 16),
+    ).listen((event) {
       if (!_isPlaying || _isGameOver || !_isSensorMode) return;
       // In portrait mode, Y axis gravity is positive when phone is upright.
       // If Y > 5.0, user is holding phone vertically (tilt up).

@@ -1894,14 +1894,14 @@ async def get_performance_overview(
 
 
 @app.get("/ranking-data")
-async def get_ranking_data() -> dict:
+async def get_ranking_data(request: Request, authorization: str = Query(None, alias="token")) -> dict:
     """Kembalikan data ranking saham berdasarkan metode MCDM yang dipilih di frontend.
 
     - ranked: hanya ticker yang sudah punya input CAGR (annual/direct/auto)
     - unranked: ticker tersimpan yang belum punya data CAGR lengkap
     """
-
-    saved_tickers = _load_saved_tickers()
+    user_id = _extract_user_id_from_auth(authorization, request=request)
+    saved_tickers = _load_saved_tickers(user_id=user_id)
     exclude_threshold = 0.15
     cagr_items = _load_cagr_data()
 
@@ -2092,14 +2092,14 @@ async def get_ranking_data() -> dict:
 
 
 @app.post("/calibrate-thresholds")
-async def calibrate_thresholds(payload: ThresholdCalibrationRequest) -> dict:
+async def calibrate_thresholds(payload: ThresholdCalibrationRequest, request: Request, authorization: str = Query(None, alias="token")) -> dict:
     """Cari threshold paling akurat berbasis forward-return backtest sederhana.
 
     Label aktual per ticker dihitung dari hit-rate forward return historis:
     label=1 jika >= 50% sampel window menghasilkan return >= target_return_pct.
     """
-
-    saved_tickers = _load_saved_tickers()
+    user_id = _extract_user_id_from_auth(authorization, request=request)
+    saved_tickers = _load_saved_tickers(user_id=user_id)
     if not saved_tickers:
         raise HTTPException(status_code=400, detail="No saved tickers to calibrate")
 
@@ -2782,21 +2782,28 @@ async def ai_status():
 
 
 @app.post("/ai/chat")
-async def ai_chat(payload: AiChatPayload):
+async def ai_chat(payload: AiChatPayload, request: Request, authorization: str = Query(None, alias="token")):
     """Chat with AI Stock Analyst.
 
     Send a message and optionally specify tickers for context.
     If no tickers are specified, all saved tickers are used.
     """
+    user_id = _extract_user_id_from_auth(authorization, request=request)
+    
     user_message = (payload.message or "").strip()
     if not user_message:
         raise HTTPException(status_code=400, detail="Message is required")
 
+    user_saved_tickers = _load_saved_tickers(user_id=user_id)
+    user_saved_tickers_upper = [t.upper() for t in user_saved_tickers]
+
     # Determine which tickers to use for context
     if payload.tickers and len(payload.tickers) > 0:
-        ticker_list = [t.strip() for t in payload.tickers if t.strip()]
+        requested = [t.strip().upper() for t in payload.tickers if t.strip()]
+        # Enforce security: only allow tickers the user has actually saved
+        ticker_list = [t for t in requested if t in user_saved_tickers_upper]
     else:
-        ticker_list = _load_saved_tickers()
+        ticker_list = user_saved_tickers
 
     # Fetch stock data for context
     stock_records: list[dict] = []
