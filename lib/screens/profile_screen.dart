@@ -9,6 +9,7 @@ import '../data/auth_repository.dart';
 import '../data/stock_repository.dart';
 import '../widgets/glassmorphic_card.dart';
 import '../widgets/premium_alert_overlay.dart';
+import '../core/api_client.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -43,36 +44,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final username = await SessionService.getUsername();
     final email = await SessionService.getEmail();
     final profilePic = await SessionService.getProfilePic();
-    var prefStabilitas = await SessionService.getPrefStabilitas();
-    var prefPertumbuhan = await SessionService.getPrefPertumbuhan();
-    var prefDividen = await SessionService.getPrefDividen();
-    var prefRisiko = await SessionService.getPrefRisiko();
+    final prefStabilitas = await SessionService.getPrefStabilitas();
+    final prefPertumbuhan = await SessionService.getPrefPertumbuhan();
+    final prefDividen = await SessionService.getPrefDividen();
+    final prefRisiko = await SessionService.getPrefRisiko();
 
-    if (prefStabilitas == null && prefPertumbuhan == null && prefDividen == null && prefRisiko == null) {
-      try {
-        final token = await SessionService.getToken();
-        if (token != null) {
-          final profile = await _authRepo.getProfile(token);
-          prefStabilitas = profile.prefStabilitas;
-          prefPertumbuhan = profile.prefPertumbuhan;
-          prefDividen = profile.prefDividen;
-          prefRisiko = profile.prefRisiko;
-          await SessionService.saveSession(
-            token: token,
-            username: profile.username,
-            email: profile.email,
-            profilePic: profile.profilePic,
-            prefStabilitas: prefStabilitas,
-            prefPertumbuhan: prefPertumbuhan,
-            prefDividen: prefDividen,
-            prefRisiko: prefRisiko,
-          );
-        }
-      } catch (_) {
-        // ignore profile fetch errors
-      }
-    }
-    
     if (mounted) {
       setState(() {
         _username = username ?? 'User';
@@ -84,6 +60,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _prefRisiko = prefRisiko;
       });
       _fetchRecommendation();
+    }
+
+    try {
+      final token = await SessionService.getToken();
+      if (token != null) {
+        final profile = await _authRepo.getProfile(token);
+        await SessionService.saveSession(
+          token: token,
+          username: profile.username,
+          email: profile.email,
+          profilePic: profile.profilePic,
+          prefStabilitas: profile.prefStabilitas,
+          prefPertumbuhan: profile.prefPertumbuhan,
+          prefDividen: profile.prefDividen,
+          prefRisiko: profile.prefRisiko,
+        );
+        if (mounted) {
+          setState(() {
+            _username = profile.username;
+            _email = profile.email;
+            _profilePic = profile.profilePic;
+            _prefStabilitas = profile.prefStabilitas;
+            _prefPertumbuhan = profile.prefPertumbuhan;
+            _prefDividen = profile.prefDividen;
+            _prefRisiko = profile.prefRisiko;
+          });
+          _fetchRecommendation();
+        }
+      }
+    } catch (_) {
+      // ignore profile fetch errors
     }
   }
 
@@ -449,7 +456,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 radius: 34,
                                 backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                                 backgroundImage: _profilePic != null
-                                    ? NetworkImage('${ApiConstants.baseUrl}$_profilePic')
+                                    ? NetworkImage('${ApiClient.instance.options.baseUrl}$_profilePic')
                                     : null,
                                 child: _profilePic == null
                                     ? Text(

@@ -7,6 +7,7 @@ import '../data/feedback_repository.dart';
 import '../core/constants/api_constants.dart';
 import '../widgets/glassmorphic_card.dart';
 import '../widgets/premium_alert_overlay.dart';
+import '../core/api_client.dart';
 
 class FeedbackScreen extends StatefulWidget {
   const FeedbackScreen({super.key});
@@ -275,7 +276,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                                       radius: 12,
                                       backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                                       backgroundImage: f.profilePic != null 
-                                          ? NetworkImage('${ApiConstants.baseUrl}${f.profilePic}') 
+                                          ? NetworkImage('${ApiClient.instance.options.baseUrl}${f.profilePic}') 
                                           : null,
                                       child: f.profilePic == null 
                                           ? Text(
