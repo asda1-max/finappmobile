@@ -7,6 +7,9 @@ import '../core/constants/api_constants.dart';
 import '../models/stock_data.dart';
 import '../widgets/glassmorphic_card.dart';
 import '../widgets/score_badge.dart';
+import '../widgets/stock_price_chart.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/providers/chart_provider.dart';
 
 /// Detailed view of a single stock with full fundamental breakdown.
 class StockDetailScreen extends StatefulWidget {
@@ -81,6 +84,9 @@ class _StockDetailScreenState extends State<StockDetailScreen> {
             sliver: SliverList(
               delegate: SliverChildListDelegate([
                 _HeroHeader(stock: stock),
+                const SizedBox(height: 16),
+                // Price Chart
+                _StockChartSection(ticker: stock.ticker),
                 const SizedBox(height: 16),
                 // Decision gauge
                 GlassmorphicCard(
@@ -779,6 +785,151 @@ class _SectionTitle extends StatelessWidget {
         fontWeight: FontWeight.w700,
         color: AppColors.textMuted,
         letterSpacing: 1.5,
+      ),
+    );
+  }
+}
+
+// ── Chart Section ──
+class _StockChartSection extends ConsumerStatefulWidget {
+  final String ticker;
+  const _StockChartSection({required this.ticker});
+
+  @override
+  ConsumerState<_StockChartSection> createState() => _StockChartSectionState();
+}
+
+class _StockChartSectionState extends ConsumerState<_StockChartSection> {
+  String _selectedPeriod = '1mo';
+  String _selectedInterval = '1d';
+
+  @override
+  Widget build(BuildContext context) {
+    final chartParams = ChartParams(
+      ticker: widget.ticker,
+      period: _selectedPeriod,
+      interval: _selectedInterval,
+    );
+    final chartAsync = ref.watch(chartHistoryProvider(chartParams));
+
+    return GlassmorphicCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'PRICE HISTORY',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textMuted,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              Row(
+                children: [
+                  _PeriodButton(
+                    label: '1D',
+                    isSelected: _selectedPeriod == '1d',
+                    onTap: () => setState(() {
+                      _selectedPeriod = '1d';
+                      _selectedInterval = '5m';
+                    }),
+                  ),
+                  _PeriodButton(
+                    label: '1W',
+                    isSelected: _selectedPeriod == '1wk',
+                    onTap: () => setState(() {
+                      _selectedPeriod = '1wk';
+                      _selectedInterval = '1d';
+                    }),
+                  ),
+                  _PeriodButton(
+                    label: '1M',
+                    isSelected: _selectedPeriod == '1mo',
+                    onTap: () => setState(() {
+                      _selectedPeriod = '1mo';
+                      _selectedInterval = '1d';
+                    }),
+                  ),
+                  _PeriodButton(
+                    label: '6M',
+                    isSelected: _selectedPeriod == '6mo',
+                    onTap: () => setState(() {
+                      _selectedPeriod = '6mo';
+                      _selectedInterval = '1wk';
+                    }),
+                  ),
+                  _PeriodButton(
+                    label: '1Y',
+                    isSelected: _selectedPeriod == '1y',
+                    onTap: () => setState(() {
+                      _selectedPeriod = '1y';
+                      _selectedInterval = '1wk';
+                    }),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 200,
+            child: chartAsync.when(
+              data: (data) {
+                final datesDynamic = data['dates'] as List<dynamic>? ?? [];
+                final closeDynamic = data['close'] as List<dynamic>? ?? [];
+                if (datesDynamic.isEmpty || closeDynamic.isEmpty) {
+                  return const Center(child: Text('Data tidak tersedia', style: TextStyle(color: AppColors.textMuted)));
+                }
+                final dates = datesDynamic.map((e) => e.toString()).toList();
+                final closePrices = closeDynamic.map((e) => (e as num).toDouble()).toList();
+                return StockPriceChart(
+                  dates: dates,
+                  closePrices: closePrices,
+                  ticker: widget.ticker,
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, stack) => Center(child: Text('Error loading chart: $err', style: TextStyle(color: AppColors.sellRed))),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PeriodButton extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  const _PeriodButton({required this.label, required this.isSelected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(left: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary.withValues(alpha: 0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.cardBorder,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? AppColors.primary : AppColors.textMuted,
+          ),
+        ),
       ),
     );
   }

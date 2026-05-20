@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
+import '../../models/portfolio_item.dart';
 
 /// Service for local SQLite database — offline caching, preferences, search history.
 class LocalDbService {
@@ -11,6 +12,7 @@ class LocalDbService {
   static const _tableTickers = 'saved_tickers';
   static const _tableSearch = 'search_history';
   static const _tableCache = 'stock_cache';
+  static const _tablePortfolio = 'portfolio';
 
   static final Map<String, dynamic> _prefsCache = {};
   static List<String> _savedTickersCache = [];
@@ -25,7 +27,7 @@ class LocalDbService {
 
     _db = await openDatabase(
       dbPath,
-      version: 1,
+      version: 2,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE $_tablePrefs (
@@ -51,6 +53,30 @@ class LocalDbService {
             value TEXT
           )
         ''');
+        await db.execute('''
+          CREATE TABLE $_tablePortfolio (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticker TEXT NOT NULL,
+            type TEXT NOT NULL,
+            shares REAL NOT NULL,
+            averageCost REAL NOT NULL,
+            dateAdded TEXT NOT NULL
+          )
+        ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS $_tablePortfolio (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              ticker TEXT NOT NULL,
+              type TEXT NOT NULL,
+              shares REAL NOT NULL,
+              averageCost REAL NOT NULL,
+              dateAdded TEXT NOT NULL
+            )
+          ''');
+        }
       },
     );
 
@@ -222,5 +248,42 @@ class LocalDbService {
     if (_db == null) return;
     _searchHistoryCache = [];
     await _db!.delete(_tableSearch);
+  }
+
+  // ── Portfolio ──
+
+  static Future<List<PortfolioItem>> getPortfolioItems() async {
+    if (_db == null) return [];
+    final rows = await _db!.query(_tablePortfolio, orderBy: 'dateAdded DESC');
+    return rows.map((e) => PortfolioItem.fromMap(e)).toList();
+  }
+
+  static Future<void> addPortfolioItem(PortfolioItem item) async {
+    if (_db == null) return;
+    await _db!.insert(
+      _tablePortfolio,
+      item.toMap()..remove('id'), // DB will autoincrement ID
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  static Future<void> updatePortfolioItem(PortfolioItem item) async {
+    if (_db == null) return;
+    if (item.id == null) return;
+    await _db!.update(
+      _tablePortfolio,
+      item.toMap(),
+      where: 'id = ?',
+      whereArgs: [item.id],
+    );
+  }
+
+  static Future<void> deletePortfolioItem(int id) async {
+    if (_db == null) return;
+    await _db!.delete(
+      _tablePortfolio,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }

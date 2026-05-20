@@ -8,6 +8,7 @@ import 'core/api_client.dart';
 import 'core/services/session_service.dart';
 import 'core/services/local_db_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/watchlist_widget_service.dart';
 import 'models/stock_data.dart';
 import 'data/stock_repository.dart';
 import 'widgets/glassmorphic_card.dart';
@@ -28,6 +29,7 @@ import 'screens/slot_machine_screen.dart';
 import 'screens/let_it_ride_screen.dart';
 import 'screens/glossary_screen.dart';
 import 'screens/currency_converter_screen.dart';
+import 'screens/portfolio_screen.dart';
 // ── Providers ──
 
 final stockRepositoryProvider = Provider<StockRepository>((ref) {
@@ -240,6 +242,23 @@ class _AppShellState extends ConsumerState<AppShell> {
     final GlobalKey<AiChatScreenState> _aiChatKey =
       GlobalKey<AiChatScreenState>();
 
+  @override
+  void initState() {
+    super.initState();
+    _handleWidgetLaunch();
+  }
+
+  Future<void> _handleWidgetLaunch() async {
+    final target = await WatchlistWidgetService.consumeOpenTarget();
+    if (!mounted || target == null) return;
+    if (target == 'watchlist') {
+      setState(() {
+        _currentIndex = 0;
+        _navIndex = 0;
+      });
+    }
+  }
+
   void _handleTabChange(int newIndex) {
     setState(() {
       _currentIndex = newIndex;
@@ -282,6 +301,13 @@ class _AppShellState extends ConsumerState<AppShell> {
                   shrinkWrap: true,
                   padding: EdgeInsets.zero,
                   children: [
+                    _MoreActionTile(
+                      icon: Icons.pie_chart_rounded,
+                      label: 'Portfolio Tracker',
+                      index: 14,
+                      accent: AppColors.primary,
+                      onTap: () => Navigator.pop(ctx, 14),
+                    ),
                     _MoreActionTile(
                       icon: Icons.person_rounded,
                       label: 'Profil',
@@ -392,6 +418,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       const CurrencyConverterScreen(),
       const TimeConverterScreen(),
       const HardwareSensorsScreen(),
+      const PortfolioScreen(),
     ];
 
     // Hide bottom nav when on "More" sub-screens (index >= 3)
@@ -815,7 +842,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       previous,
       next,
     ) {
-      next.whenData(_maybeNotify);
+      next.whenData((stocks) {
+        _maybeNotify(stocks);
+        WatchlistWidgetService.updateFromStocks(stocks);
+      });
     });
     final stocksAsync = ref.watch(stockDataProvider);
 
