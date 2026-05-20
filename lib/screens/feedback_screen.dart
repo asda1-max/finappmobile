@@ -276,7 +276,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                                       radius: 12,
                                       backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                                       backgroundImage: f.profilePic != null 
-                                          ? NetworkImage('${ApiClient.instance.options.baseUrl}${f.profilePic}') 
+                                          ? NetworkImage('${Uri.parse(ApiClient.instance.options.baseUrl).resolve(f.profilePic!).toString()}') 
                                           : null,
                                       child: f.profilePic == null 
                                           ? Text(

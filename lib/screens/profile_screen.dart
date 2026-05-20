@@ -31,6 +31,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int? _prefDividen;
   int? _prefRisiko;
   bool _isLoading = false;
+  int _imageKey = 0;
+  bool _imageLoadError = false;
 
   Map<String, dynamic>? _recommendedPreset;
 
@@ -166,7 +168,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _uploadImage() async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
       if (image == null) return;
       
       setState(() => _isLoading = true);
@@ -189,6 +196,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       
       setState(() {
         _profilePic = newUrl;
+        _imageKey = DateTime.now().millisecondsSinceEpoch;
+        _imageLoadError = false;
         _isLoading = false;
       });
       
@@ -455,10 +464,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               CircleAvatar(
                                 radius: 34,
                                 backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                                backgroundImage: _profilePic != null
-                                    ? NetworkImage('${ApiClient.instance.options.baseUrl}$_profilePic')
+                                backgroundImage: _profilePic != null && !_imageLoadError
+                                    ? NetworkImage('${Uri.parse(ApiClient.instance.options.baseUrl).resolve(_profilePic!).toString()}?v=$_imageKey')
                                     : null,
-                                child: _profilePic == null
+                                onBackgroundImageError: _profilePic != null ? (exception, stackTrace) {
+                                  if (mounted) setState(() => _imageLoadError = true);
+                                } : null,
+                                child: (_profilePic == null || _imageLoadError)
                                     ? Text(
                                         _username.isNotEmpty ? _username[0].toUpperCase() : '?',
                                         style: const TextStyle(
