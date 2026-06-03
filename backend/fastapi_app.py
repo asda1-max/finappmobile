@@ -2783,6 +2783,7 @@ from backend.ai_service import (
     get_chat_system_prompt,
     get_explain_system_prompt,
     build_stock_context,
+    AiServiceError,
     is_configured as ai_is_configured,
 )
 
@@ -2849,6 +2850,8 @@ async def ai_chat(payload: AiChatPayload, request: Request, authorization: str =
             max_tokens=1536,
             temperature=0.7,
         )
+    except AiServiceError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
@@ -2913,6 +2916,8 @@ async def ai_explain(ticker: str):
             max_tokens=1024,
             temperature=0.5,
         )
+    except AiServiceError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e))
 

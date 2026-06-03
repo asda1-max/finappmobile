@@ -26,6 +26,13 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 _TIMEOUT = httpx.Timeout(timeout=120.0, connect=15.0)
 
 
+class AiServiceError(RuntimeError):
+    def __init__(self, status_code: int, message: str) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.message = message
+
+
 def is_configured() -> bool:
     """Check if the OpenRouter API key is properly configured."""
     return bool(OPENROUTER_API_KEY and OPENROUTER_API_KEY != "your-openrouter-api-key-here")
@@ -88,8 +95,14 @@ async def chat_completion(
                 if response.status_code != 200:
                     print("🔴 STATUS:", response.status_code)
                     print("🔴 BODY:", response.text)
-                    raise RuntimeError(
-                        f"OpenRouter API error {response.status_code}: {response.text}"
+                    if response.status_code == 503:
+                        raise AiServiceError(
+                            503,
+                            "Error 503 - AI service Unavailable via api nya",
+                        )
+                    raise AiServiceError(
+                        response.status_code,
+                        f"Error {response.status_code} - AI service Unavailable",
                     )
 
                 data = response.json()
