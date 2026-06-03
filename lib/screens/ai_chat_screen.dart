@@ -35,6 +35,21 @@ class AiChatScreenState extends State<AiChatScreen>
     'meta-llama/llama-3.1-8b-instruct',
   ];
 
+  String _formatTierLabel(String tier) => tier == 'paid' ? 'Paid AI' : 'Free AI';
+
+  String _formatPaidModelLabel(String rawModel) {
+    final parts = rawModel.split('/');
+    final name = parts.length > 1 ? parts[1] : rawModel;
+    return name
+        .replaceAll('-instruct', '')
+        .replaceAll('-', ' ')
+        .split(' ')
+        .map((w) => w.isNotEmpty
+            ? '${w[0].toUpperCase()}${w.substring(1)}'
+            : '')
+        .join(' ');
+  }
+
   // Quick suggestion chips
   static const _suggestions = [
     'Saham mana yang paling layak beli?',
@@ -235,84 +250,139 @@ class AiChatScreenState extends State<AiChatScreen>
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.forum_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ShaderMask(
-                  shaderCallback: (bounds) =>
-                      AppColors.primaryGradient.createShader(bounds),
-                  child: const Text(
-                    'Ticki TackAI',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.forum_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ShaderMask(
+                      shaderCallback: (bounds) =>
+                          AppColors.primaryGradient.createShader(bounds),
+                      child: const Text(
+                        'Ticki TackAI',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
+                    Text(
+                      _modelName,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppColors.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Online indicator
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _aiConfigured
+                      ? AppColors.buyGreen.withValues(alpha: 0.12)
+                      : AppColors.sellRed.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: _aiConfigured
+                            ? AppColors.buyGreen
+                            : AppColors.sellRed,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _aiConfigured ? 'Online' : 'Offline',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: _aiConfigured
+                            ? AppColors.buyGreen
+                            : AppColors.sellRed,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Clear chat button
+              GestureDetector(
+                onTap: _clearChat,
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceLight,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.delete_outline_rounded,
+                    size: 16,
+                    color: AppColors.textMuted,
                   ),
                 ),
-                Text(
-                  _modelName,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: AppColors.textTertiary,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceLight,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.cardBorder),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonHideUnderline(
+          const SizedBox(height: 12),
+          // AI Model settings row
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceLight,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _aiTier,
                     isDense: true,
+                    isExpanded: false,
                     icon: Icon(
                       Icons.keyboard_arrow_down_rounded,
-                      size: 16,
+                      size: 14,
                       color: AppColors.textMuted,
                     ),
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color: AppColors.textSecondary,
                       fontWeight: FontWeight.w600,
                     ),
                     dropdownColor: AppColors.surface,
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'free',
-                        child: Text('Free AI'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'paid',
-                        child: Text('Paid AI'),
-                      ),
-                    ],
+                    items: const ['free', 'paid']
+                        .map((tier) => DropdownMenuItem(
+                              value: tier,
+                              child: Text(tier == 'paid' ? 'Paid AI' : 'Free AI'),
+                            ))
+                        .toList(),
                     onChanged: _isLoading
                         ? null
                         : (value) {
@@ -321,26 +391,29 @@ class AiChatScreenState extends State<AiChatScreen>
                           },
                   ),
                 ),
-                if (_aiTier == 'paid') ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
+              ),
+              if (_aiTier == 'paid') ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(6),
+                      color: AppColors.surfaceLight,
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: AppColors.cardBorder),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: _paidModel,
                         isDense: true,
+                        isExpanded: true,
                         icon: Icon(
                           Icons.keyboard_arrow_down_rounded,
                           size: 14,
                           color: AppColors.textMuted,
                         ),
                         style: const TextStyle(
-                          fontSize: 10,
+                          fontSize: 12,
                           color: AppColors.textSecondary,
                           fontWeight: FontWeight.w600,
                         ),
@@ -348,7 +421,10 @@ class AiChatScreenState extends State<AiChatScreen>
                         items: _paidModels
                             .map((model) => DropdownMenuItem(
                                   value: model,
-                                  child: Text(model),
+                                  child: Text(
+                                    _formatPaidModelLabel(model),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ))
                             .toList(),
                         onChanged: _isLoading
@@ -360,63 +436,9 @@ class AiChatScreenState extends State<AiChatScreen>
                       ),
                     ),
                   ),
-                ],
-              ],
-            ),
-          ),
-          // Online indicator
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: _aiConfigured
-                  ? AppColors.buyGreen.withValues(alpha: 0.12)
-                  : AppColors.sellRed.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: _aiConfigured
-                        ? AppColors.buyGreen
-                        : AppColors.sellRed,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  _aiConfigured ? 'Online' : 'Offline',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: _aiConfigured
-                        ? AppColors.buyGreen
-                        : AppColors.sellRed,
-                  ),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Clear chat button
-          GestureDetector(
-            onTap: _clearChat,
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceLight,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.delete_outline_rounded,
-                size: 16,
-                color: AppColors.textMuted,
-              ),
-            ),
+            ],
           ),
         ],
       ),

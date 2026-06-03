@@ -24,6 +24,7 @@ OPENROUTER_FALLBACK_MODELS = os.environ.get(
         # "google/gemma-4-31b-it:free",
         # "nousresearch/hermes-3-llama-3.1-405b:free",
         # "openai/gpt-oss-20b:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
         "poolside/laguna-m.1:free",
         "poolside/laguna-xs.2:free",
         "nousresearch/hermes-3-llama-3.1-405b:free",
@@ -37,6 +38,7 @@ OPENROUTER_FALLBACK_MODELS = os.environ.get(
 
 FREE_MODEL_GROUP = [
     "openrouter/free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
     "nousresearch/hermes-3-llama-3.1-405b:free",
     "poolside/laguna-m.1:free",
     "poolside/laguna-xs.2:free",
