@@ -81,6 +81,10 @@ async def chat_completion(
             ],
             "max_tokens": max_tokens,
             "temperature": temperature,
+            "provider": {
+                "order": ["Chutes"],
+                "allow_fallbacks": True,
+            },
         }
 
         for attempt in range(2):  # retry 2x per model
