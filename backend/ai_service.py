@@ -18,7 +18,7 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/owl_alpha")
 OPENROUTER_FALLBACK_MODELS = os.environ.get(
     "OPENROUTER_FALLBACK_MODELS",
-    "openai/gpt-oss-120b:free,google/gemma-4-26b-a4b-it:free,google/gemma-4-31b-it:free,nousresearch/hermes-3-llama-3.1-405b:free,openai/gpt-oss-20b:free",
+    "openai/gpt-oss-120b:free,google/gemma-4-26b-a4b-it:free,google/gemma-4-31b-it:free,nousresearch/hermes-3-llama-3.1-405b:free,openai/gpt-oss-20b:free,poolside/laguna-xs.2:free",
 )
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
@@ -82,7 +82,7 @@ async def chat_completion(
             "max_tokens": max_tokens,
             "temperature": temperature,
             "provider": {
-                "order": ["Chutes", "Lepton", "Together", "OpenAI", "OpenInference"],
+                "order": ["Chutes", "Lepton", "Together", "OpenAI", "OpenInference", "Poolside"],
                 "allow_fallbacks": True,
             },
         }
