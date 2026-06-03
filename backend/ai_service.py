@@ -18,7 +18,7 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/owl_alpha")
 OPENROUTER_FALLBACK_MODELS = os.environ.get(
     "OPENROUTER_FALLBACK_MODELS",
-    "google/gemma-2-9b-it,google/gemma-2-2b-it,mistralai/mistral-7b-instruct,meta-llama/llama-3.1-8b-instruct,qwen/qwen2.5-7b-instruct",
+    "openai/gpt-oss-120b:free,google/gemma-4-26b-a4b-it:free,google/gemma-4-31b-it:free,nousresearch/hermes-3-llama-3.1-405b:free,openai/gpt-oss-20b:free",
 )
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
