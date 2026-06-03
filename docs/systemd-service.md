@@ -14,8 +14,8 @@ After=network.target
 Type=simple
 User=YOUR_USER
 WorkingDirectory=%h/proj/finappmobile
-Environment="PATH=%h/proj/finappmobile/.venv/bin"
-ExecStart=%h/proj/finappmobile/.venv/bin/python -m uvicorn backend.fastapi_app:app --host 0.0.0.0 --port 8000
+Environment="PATH=%h/proj/finappmobile/backend/.venv/bin"
+ExecStart=%h/proj/finappmobile/backend/.venv/bin/python -m uvicorn backend.fastapi_app:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=2
 
