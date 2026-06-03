@@ -24,9 +24,9 @@ OPENROUTER_FALLBACK_MODELS = os.environ.get(
         # "google/gemma-4-31b-it:free",
         # "nousresearch/hermes-3-llama-3.1-405b:free",
         # "openai/gpt-oss-20b:free",
-        "openrouter/free",
-        "poolside/laguna-xs.2:free",
         "poolside/laguna-m.1:free",
+        "poolside/laguna-xs.2:free",
+        "openrouter/free",
         "inclusionai/ling-2.6-flash"
     ]),
 )
