@@ -24,7 +24,7 @@ OPENROUTER_FALLBACK_MODELS = os.environ.get(
         "google/gemma-4-31b-it:free",
         "nousresearch/hermes-3-llama-3.1-405b:free",
         "openai/gpt-oss-20b:free",
-        "openai/gpt-oss-120b"
+        "inclusionai/ling-2.6-flash"
         # "poolside/laguna-xs.2:free",
         # "poolside/laguna-m.1:free"
     ]),
@@ -90,10 +90,6 @@ async def chat_completion(
             ],
             "max_tokens": max_tokens,
             "temperature": temperature,
-            "provider": {
-                "order": ["Venice", "Chutes", "Lepton", "Together", "OpenAI", "GoogleAIStudio", "OpenInference", "Poolside"],
-                "allow_fallbacks": True,
-            },
         }
 
         for attempt in range(2):  # retry 2x per model
