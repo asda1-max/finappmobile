@@ -24,16 +24,29 @@ OPENROUTER_FALLBACK_MODELS = os.environ.get(
         # "google/gemma-4-31b-it:free",
         # "nousresearch/hermes-3-llama-3.1-405b:free",
         # "openai/gpt-oss-20b:free",
-        "openrouter/free",
-        "nousresearch/hermes-3-llama-3.1-405b:free",
         "poolside/laguna-m.1:free",
         "poolside/laguna-xs.2:free",
+        "nousresearch/hermes-3-llama-3.1-405b:free",
+        "openrouter/free",
         "inclusionai/ling-2.6-flash",
         "mistralai/mistral-nemo",
         "meta-llama/llama-3.1-8b-instruct"
 
     ]),
 )
+
+FREE_MODEL_GROUP = [
+    "openrouter/free",
+    "nousresearch/hermes-3-llama-3.1-405b:free",
+    "poolside/laguna-m.1:free",
+    "poolside/laguna-xs.2:free",
+]
+
+PAID_MODEL_GROUP = [
+    "inclusionai/ling-2.6-flash",
+    "mistralai/mistral-nemo",
+    "meta-llama/llama-3.1-8b-instruct",
+]
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # ── Timeouts ──
@@ -57,9 +70,10 @@ async def chat_completion(
     user_message: str,
     *,
     model: Optional[str] = None,
+    model_group: Optional[str] = None,
     max_tokens: int = 512,
     temperature: float = 0.7,
-) -> str:
+) -> tuple[str, str]:
     """Send a chat completion request to OpenRouter.
 
     Returns the assistant's response text, or raises on error.
@@ -69,14 +83,23 @@ async def chat_completion(
             "⚠️ OpenRouter API key belum dikonfigurasi.\n\n"
             "Silakan set `OPENROUTER_API_KEY` di file `backend/.env` "
             "lalu restart server."
-        )
+        ), (model or OPENROUTER_MODEL)
 
     max_tokens = min(max_tokens, 1150)
     fallback_models = [m.strip() for m in OPENROUTER_FALLBACK_MODELS.split(",") if m.strip()]
-    model_candidates = [model or OPENROUTER_MODEL]
-    for m in fallback_models:
-        if m not in model_candidates:
-            model_candidates.append(m)
+    if model_group == "free":
+        base_models = FREE_MODEL_GROUP
+    elif model_group == "paid":
+        base_models = PAID_MODEL_GROUP
+    else:
+        base_models = [model or OPENROUTER_MODEL] + fallback_models
+
+    model_candidates = []
+    if base_models:
+        model_candidates.append(model or base_models[0])
+        for m in base_models[1:]:
+            if m not in model_candidates:
+                model_candidates.append(m)
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -129,7 +152,7 @@ async def chat_completion(
                 if not content or not str(content).strip():
                     raise AiServiceError(502, "AI response gagal dibuat")
 
-                return content
+                return content, model_name
 
             except Exception as e:
                 last_error = e

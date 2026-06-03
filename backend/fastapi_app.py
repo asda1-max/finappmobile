@@ -2791,6 +2791,7 @@ from backend.ai_service import (
 class AiChatPayload(BaseModel):
     message: str
     tickers: Optional[List[str]] = None
+    ai_tier: Optional[str] = None
 
 
 @app.get("/ai/status")
@@ -2844,9 +2845,10 @@ async def ai_chat(payload: AiChatPayload, request: Request, authorization: str =
     system_prompt = get_chat_system_prompt(stock_records)
 
     try:
-        response = await chat_completion(
+        response, model_used = await chat_completion(
             system_prompt=system_prompt,
             user_message=user_message,
+            model_group=(payload.ai_tier or "").strip().lower() or None,
             max_tokens=1536,
             temperature=0.7,
         )
@@ -2859,6 +2861,7 @@ async def ai_chat(payload: AiChatPayload, request: Request, authorization: str =
         "response": response,
         "tickers_used": [r.get("Ticker", "") for r in stock_records],
         "model": os.environ.get("OPENROUTER_MODEL", "google/gemma-4-31b-it"),
+        "model_used": model_used,
     }
 
 
@@ -2910,7 +2913,7 @@ async def ai_explain(ticker: str):
     )
 
     try:
-        response = await chat_completion(
+        response, model_used = await chat_completion(
             system_prompt=system_prompt,
             user_message=user_message,
             max_tokens=1024,
@@ -2927,4 +2930,5 @@ async def ai_explain(ticker: str):
         "hybrid_score": hybrid_score,
         "explanation": response,
         "model": os.environ.get("OPENROUTER_MODEL", "google/gemma-4-31b-it"),
+        "model_used": model_used,
     }

@@ -26,6 +26,7 @@ class AiChatScreenState extends State<AiChatScreen>
   bool _isLoading = false;
   bool _aiConfigured = true;
   String _modelName = 'Gemma 4 31B';
+  String _aiTier = 'free';
 
   // Quick suggestion chips
   static const _suggestions = [
@@ -118,6 +119,7 @@ class AiChatScreenState extends State<AiChatScreen>
         data: {
           'message': text,
           'tickers': tickers.isNotEmpty ? tickers : null,
+          'ai_tier': _aiTier,
         },
         options: Options(
           receiveTimeout: const Duration(seconds: 120),
@@ -127,8 +129,12 @@ class AiChatScreenState extends State<AiChatScreen>
 
       final data = response.data as Map<String, dynamic>;
       final aiResponse = data['response'] as String? ?? 'Tidak ada respons.';
+      final modelUsed = data['model_used'] as String?;
 
       setState(() {
+        if (modelUsed != null && modelUsed.isNotEmpty) {
+          _modelName = _formatModelName(modelUsed);
+        }
         _messages.add(_ChatMessage(
           text: aiResponse,
           isUser: false,
@@ -261,6 +267,48 @@ class AiChatScreenState extends State<AiChatScreen>
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceLight,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _aiTier,
+                isDense: true,
+                icon: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 16,
+                  color: AppColors.textMuted,
+                ),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+                dropdownColor: AppColors.surface,
+                items: const [
+                  DropdownMenuItem(
+                    value: 'free',
+                    child: Text('Free AI'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'paid',
+                    child: Text('Paid AI'),
+                  ),
+                ],
+                onChanged: _isLoading
+                    ? null
+                    : (value) {
+                        if (value == null) return;
+                        setState(() => _aiTier = value);
+                      },
+              ),
             ),
           ),
           // Online indicator
