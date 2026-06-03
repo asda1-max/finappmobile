@@ -20,12 +20,13 @@ OPENROUTER_FALLBACK_MODELS = os.environ.get(
     "OPENROUTER_FALLBACK_MODELS",
     ",".join([
         "meta-llama/llama-3.3-70b-instruct:free",
-        "openai/gpt-oss-120b:free",
         "google/gemma-4-26b-a4b-it:free",
         "google/gemma-4-31b-it:free",
         "nousresearch/hermes-3-llama-3.1-405b:free",
         "openai/gpt-oss-20b:free",
-        "poolside/laguna-xs.2:free",
+        "openai/gpt-oss-120b"
+        # "poolside/laguna-xs.2:free",
+        # "poolside/laguna-m.1:free"
     ]),
 )
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
