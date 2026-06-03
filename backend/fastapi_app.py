@@ -2792,6 +2792,7 @@ class AiChatPayload(BaseModel):
     message: str
     tickers: Optional[List[str]] = None
     ai_tier: Optional[str] = None
+    ai_model: Optional[str] = None
 
 
 @app.get("/ai/status")
@@ -2848,6 +2849,7 @@ async def ai_chat(payload: AiChatPayload, request: Request, authorization: str =
         response, model_used = await chat_completion(
             system_prompt=system_prompt,
             user_message=user_message,
+            model=payload.ai_model,
             model_group=(payload.ai_tier or "").strip().lower() or None,
             max_tokens=1536,
             temperature=0.7,

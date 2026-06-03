@@ -27,6 +27,13 @@ class AiChatScreenState extends State<AiChatScreen>
   bool _aiConfigured = true;
   String _modelName = 'Gemma 4 31B';
   String _aiTier = 'free';
+  String _paidModel = 'inclusionai/ling-2.6-flash';
+
+  static const _paidModels = [
+    'inclusionai/ling-2.6-flash',
+    'mistralai/mistral-nemo',
+    'meta-llama/llama-3.1-8b-instruct',
+  ];
 
   // Quick suggestion chips
   static const _suggestions = [
@@ -120,6 +127,7 @@ class AiChatScreenState extends State<AiChatScreen>
           'message': text,
           'tickers': tickers.isNotEmpty ? tickers : null,
           'ai_tier': _aiTier,
+          'ai_model': _aiTier == 'paid' ? _paidModel : null,
         },
         options: Options(
           receiveTimeout: const Duration(seconds: 120),
@@ -277,38 +285,83 @@ class AiChatScreenState extends State<AiChatScreen>
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppColors.cardBorder),
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _aiTier,
-                isDense: true,
-                icon: Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: 16,
-                  color: AppColors.textMuted,
-                ),
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-                dropdownColor: AppColors.surface,
-                items: const [
-                  DropdownMenuItem(
-                    value: 'free',
-                    child: Text('Free AI'),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _aiTier,
+                    isDense: true,
+                    icon: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 16,
+                      color: AppColors.textMuted,
+                    ),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    dropdownColor: AppColors.surface,
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'free',
+                        child: Text('Free AI'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'paid',
+                        child: Text('Paid AI'),
+                      ),
+                    ],
+                    onChanged: _isLoading
+                        ? null
+                        : (value) {
+                            if (value == null) return;
+                            setState(() => _aiTier = value);
+                          },
                   ),
-                  DropdownMenuItem(
-                    value: 'paid',
-                    child: Text('Paid AI'),
+                ),
+                if (_aiTier == 'paid') ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _paidModel,
+                        isDense: true,
+                        icon: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 14,
+                          color: AppColors.textMuted,
+                        ),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        dropdownColor: AppColors.surface,
+                        items: _paidModels
+                            .map((model) => DropdownMenuItem(
+                                  value: model,
+                                  child: Text(model),
+                                ))
+                            .toList(),
+                        onChanged: _isLoading
+                            ? null
+                            : (value) {
+                                if (value == null) return;
+                                setState(() => _paidModel = value);
+                              },
+                      ),
+                    ),
                   ),
                 ],
-                onChanged: _isLoading
-                    ? null
-                    : (value) {
-                        if (value == null) return;
-                        setState(() => _aiTier = value);
-                      },
-              ),
+              ],
             ),
           ),
           // Online indicator

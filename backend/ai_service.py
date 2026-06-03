@@ -90,7 +90,7 @@ async def chat_completion(
     if model_group == "free":
         base_models = FREE_MODEL_GROUP
     elif model_group == "paid":
-        base_models = PAID_MODEL_GROUP
+        base_models = ([model] if model else []) + PAID_MODEL_GROUP
     else:
         base_models = [model or OPENROUTER_MODEL] + fallback_models
 
