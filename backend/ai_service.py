@@ -82,7 +82,7 @@ async def chat_completion(
             "max_tokens": max_tokens,
             "temperature": temperature,
             "provider": {
-                "order": ["Chutes"],
+                "order": ["Chutes", "Lepton", "Together", "OpenAI", "OpenInference"],
                 "allow_fallbacks": True,
             },
         }
