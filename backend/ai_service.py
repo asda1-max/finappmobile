@@ -102,19 +102,23 @@ async def chat_completion(
                     if response.status_code == 503:
                         raise AiServiceError(
                             503,
-                            "Error 503 - AI service Unavailable via api nya",
+                            f"Error 503 - AI service Unavailable | raw: {response.text}",
                         )
                     raise AiServiceError(
                         response.status_code,
-                        f"Error {response.status_code} - AI service Unavailable",
+                        f"Error {response.status_code} - AI service Unavailable | raw: {response.text}",
                     )
 
                 data = response.json()
                 choices = data.get("choices") or []
                 if not choices:
-                    raise RuntimeError("OpenRouter returned empty choices")
+                    raise AiServiceError(502, "AI response gagal dibuat")
 
-                return choices[0]["message"]["content"]
+                content = (choices[0].get("message") or {}).get("content")
+                if not content or not str(content).strip():
+                    raise AiServiceError(502, "AI response gagal dibuat")
+
+                return content
 
             except Exception as e:
                 last_error = e
