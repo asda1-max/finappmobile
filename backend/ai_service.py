@@ -37,7 +37,7 @@ OPENROUTER_FALLBACK_MODELS = os.environ.get(
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # ── Timeouts ──
-_TIMEOUT = httpx.Timeout(timeout=120.0, connect=15.0)
+_TIMEOUT = httpx.Timeout(timeout=45.0, connect=10.0)
 
 
 class AiServiceError(RuntimeError):
@@ -71,6 +71,7 @@ async def chat_completion(
             "lalu restart server."
         )
 
+    max_tokens = min(max_tokens, 768)
     fallback_models = [m.strip() for m in OPENROUTER_FALLBACK_MODELS.split(",") if m.strip()]
     model_candidates = [model or OPENROUTER_MODEL]
     for m in fallback_models:
